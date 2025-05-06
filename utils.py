@@ -3,7 +3,7 @@ from typing import Iterator
 
 import numpy as np
 
-from signals import PixelEnum
+from signals import ColorEnum
 
 
 @cache
@@ -26,13 +26,13 @@ def drill(array: np.ndarray) -> Iterator[tuple[list[int], np.ndarray]]:
                 yield result
 
 
-def get_color(array: np.ndarray) -> PixelEnum:
+def get_color(array: np.ndarray) -> ColorEnum:
     if all(array == [255, 255, 255]):
-        return PixelEnum.WHITE
+        return ColorEnum.WHITE
     if all(array == [000, 000, 000]):
-        return PixelEnum.BLACK
+        return ColorEnum.BLACK
     if all(array == [000, 000, 255]):
-        return PixelEnum.RED
+        return ColorEnum.RED
     if all(array == [000, 255, 000]):
-        return PixelEnum.GREEN
+        return ColorEnum.GREEN
     raise ValueError(f'Unrecognised colour: {array}')
