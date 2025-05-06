@@ -35,4 +35,6 @@ def get_color(array: np.ndarray) -> ColorEnum:
         return ColorEnum.RED
     if all(array == [000, 255, 000]):
         return ColorEnum.GREEN
+    if all(array == [255, 000, 000]):
+        return ColorEnum.BLUE
     raise ValueError(f'Unrecognised colour: {array}')
