@@ -26,7 +26,7 @@ def drill(array: np.ndarray) -> Iterator[tuple[list[int], np.ndarray]]:
                 yield result
 
 
-def get_colour(array: np.ndarray) -> PixelEnum:
+def get_color(array: np.ndarray) -> PixelEnum:
     if all(array == [255, 255, 255]):
         return PixelEnum.WHITE
     if all(array == [000, 000, 000]):
