@@ -1,7 +1,5 @@
 from typing import Callable, Iterable
 
-from particle import Particle
-
 
 class Agent:
     def __init__(self):
