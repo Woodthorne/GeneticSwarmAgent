@@ -24,7 +24,7 @@ class Particle:
 
     @property
     def position(self) -> np.ndarray:
-        return self._position
+        return self._position.copy()
     
     @property
     def fitness(self) -> float:
@@ -32,7 +32,7 @@ class Particle:
     
     @property
     def best_position(self) -> np.ndarray:
-        return self._best_position
+        return self._best_position.copy()
 
     @property
     def best_fitness(self) -> float:
@@ -40,7 +40,7 @@ class Particle:
     
     @property
     def velocity(self) -> np.ndarray:
-        return self._velocity
+        return self._velocity.copy()
     
     def move(self, new_velocity: list[float],new_fitness_func: Callable) -> None:
         self._position = self.position + self._velocity
