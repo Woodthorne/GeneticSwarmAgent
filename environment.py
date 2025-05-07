@@ -90,6 +90,9 @@ class Environment:
                 )
             )
             particle.move(new_velocity, fitness_func)
-            percept['view'][*particle.position] = [000, 000, 255]
+            try:
+                percept['view'][*particle.position] = [000, 000, 255]
+            except IndexError:
+                pass
         
         return percept['view']
