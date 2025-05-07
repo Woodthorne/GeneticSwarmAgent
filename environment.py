@@ -1,14 +1,13 @@
 import random
 
-import cv2
 import numpy as np
 
 from agent import Agent
 from map import Map
 from particle import Particle
 from signals import ColorEnum
-from utils import add, multiply, subtract
 
+from utils import drill, get_color
 
 class Environment:
     def __init__(
@@ -24,27 +23,33 @@ class Environment:
         self._is_done: bool = False
         self._latest_percept: dict[str, np.ndarray|list[list[int]]] = {}
         self._latest_percept['view'] = np.full(self.map.img.shape, 100)
+        self._target_positions = self.map.find_positions(ColorEnum.GREEN)
     
     @property
     def map(self) -> Map:
         return self._map
     
+    @property
+    def is_done(self) -> bool:
+        return self._is_done
+    
     def populate_swarm(self, count: int) -> None:
         starting_positions = self.map.find_positions(ColorEnum.BLUE)
         for particle in self._swarm:
-            try:
-                starting_positions.remove(particle.position)
-            except ValueError:
-                pass
+            mask = (starting_positions != particle.position).any(axis = 1)
+            starting_positions = starting_positions[mask]
         
         for _ in range(count):
             id_num = len(self._swarm)
             position = random.choice(starting_positions)
-            starting_positions.remove(position)
+            
+            mask = (starting_positions != position).any(axis = 1)
+            starting_positions = starting_positions[mask]
+            
             particle = Particle(
                 id_num = id_num,
                 position = position,
-                velocity = [0 for _ in position],
+                velocity = np.zeros([len(position)], dtype=np.int64),
                 fitness_func = lambda _: 0
             )
             self._swarm.append(particle)
@@ -52,13 +57,13 @@ class Environment:
     def step(self) -> np.ndarray:
         percept = {}
         percept['view'] = self._latest_percept['view']
-        percept['swarm_pos'] = [particle.position for particle in self._swarm]
+        
+        percept['swarm_pos'] = np.array([particle.position for particle in self._swarm])
         # percept['view'] = np.full(self.map.img.shape, 100)
         for particle in self._swarm:
             mask = [slice(max(axis - self._sensor_radius, 0),
                           axis + self._sensor_radius + 1)
                     for axis in particle.position]
-            
             percept['view'][*mask] = self.map.img[*mask] # TODO: Fix conversion from [0,0,0] to ColorEnum
         
         self._latest_percept = percept
@@ -72,27 +77,18 @@ class Environment:
 
         best_position = self._swarm[0].best_position
         for particle in self._swarm:
-            new_velocity = add(
-                multiply(inertia, particle.velocity),
-                multiply(
-                    exploration * random.random(),
-                    subtract(
-                        particle.best_position,
-                        particle.position
-                    )
-                ),
-                multiply(
-                    exploitation * random.random(),
-                    subtract(
-                        best_position,
-                        particle.position
-                    )
-                )
-            )
+            new_velocity = (
+                inertia * particle.velocity \
+                + exploration * random.random() * (particle.best_position - particle.position) \
+                + exploitation * random.random() * (best_position - particle.position)
+            ).astype(np.int64)
             particle.move(new_velocity, fitness_func)
-            try:
-                percept['view'][*particle.position] = [000, 000, 255]
-            except IndexError:
-                pass
-        
+            assert all([0 for _ in self.map.axes] < particle.position) \
+                 and all(particle.position < self.map.axes), \
+                    f'Collision at {particle.position}'
+            percept['view'][*particle.position] = [0, 0, 255]
+
+        if all(particle.position in self._target_positions for particle in self._swarm):
+            self._is_done = True
+
         return percept['view']

@@ -10,7 +10,7 @@ class Map:
     def __init__(self, map_name: str) -> None:
         self._img_path = Path('maps') / map_name
         self._img: np.ndarray = cv2.imread(self._img_path)
-        self._axes: int = len(self.img.shape) - 1
+        self._axes: tuple[int] = self.img.shape[:-1]
 
     @property
     def img(self) -> np.ndarray:
@@ -21,7 +21,7 @@ class Map:
         return self._img_path
 
     @property
-    def axes(self) -> int:
+    def axes(self) -> tuple[int]:
         return self._axes
     
     def check_position(self, position: list[int]) -> ColorEnum:
@@ -30,5 +30,6 @@ class Map:
     def find_positions(self, color: ColorEnum) -> list[list[int]]:
         positions = [position for position, pixel in drill(self._img)
                      if get_color(pixel) == color]
-        return positions
+        
+        return np.array(positions)
     
