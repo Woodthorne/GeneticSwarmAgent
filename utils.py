@@ -38,3 +38,65 @@ def get_color(array: np.ndarray) -> ColorEnum:
     if all(array == [255, 000, 000]):
         return ColorEnum.BLUE
     raise ValueError(f'Unrecognised colour: {array}')
+
+
+@cache
+def add(*vectors: tuple[float]) -> tuple[float]:
+    '''Adds together multiple vectors
+
+    Parameters
+    ----------
+    vectors: tuple[*float]
+        Vectors to be added.
+
+    Returns
+    -------
+    tuple[*float]
+        Vector sum.
+    '''
+    assert all(len(vectors[0]) == len(vector) for vector in vectors), \
+        'All vectors need to be of same length.'
+    vector = tuple(int(sum(vals)) for vals in zip(*vectors))
+    return vector
+
+
+@cache
+def subtract(vector: tuple[float], *subtrahends: tuple[float]) -> tuple[float]:
+    '''Subtracts vectors from first vectors.
+
+    Parameters
+    ----------
+    vector: tuple[*float]
+        Vector to subtract from.
+    subtrahends: tuple[*float]
+        Vectors to subtract from first vector.
+    
+    Returns
+    -------
+    tuple[*float]
+        Vector difference.
+    '''
+    assert all(len(vector) == len(subtrahend) for subtrahend in subtrahends), \
+        'All subtrahends need to be of same length as vector.'
+    addends = [multiply(-1, subtrahend) for subtrahend in subtrahends]
+    return add(vector, *addends)
+
+
+@cache
+def multiply(scalar: float, vector: tuple[float]) -> tuple[float]:
+    '''Scalar multiplication
+    
+    Parameters
+    ----------
+    scalar: float
+        Left scalar of multiplication
+    vector: tuple[*float]
+        Vector to be multiplied
+    
+    Returns
+    -------
+    tuple[*float]
+        Scaled vector.
+
+    '''
+    return tuple(int(scalar * val) for val in vector)

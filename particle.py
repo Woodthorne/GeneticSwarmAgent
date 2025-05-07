@@ -11,12 +11,12 @@ class Particle:
             fitness_func: Callable
     ) -> None:
         self._id = id_num
-        self._position = position
-        self._fitness_func = velocity
+        self._position = tuple(position)
+        self._fitness_func = fitness_func
         self._fitness = fitness_func(position)
-        self._best_position = position
+        self._best_position = tuple(position)
         self._best_fitness = self.fitness
-        self._velocity = velocity
+        self._velocity = tuple(velocity)
 
     @property
     def id(self) -> int:
@@ -42,10 +42,11 @@ class Particle:
     def velocity(self) -> list[int]:
         return self._velocity
     
-    def move(self, new_velocity: list[float]) -> None:
+    def move(self, new_velocity: list[float],new_fitness_func: Callable) -> None:
         self._position = add(self.position, new_velocity)
         self._velocity = new_velocity
-        self._fitness = self._fitness_func(self.position)
+        self._fitness_func = new_fitness_func
+        self._fitness = new_fitness_func(self.position)
         if self.fitness > self.best_fitness:
             self._best_fitness = self.fitness
             self._best_position = self.position
