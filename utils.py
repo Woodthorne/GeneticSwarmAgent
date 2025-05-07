@@ -42,6 +42,12 @@ def get_color(array: np.ndarray) -> ColorEnum:
     raise ValueError(f'Unrecognised colour: {array}')
 
 
+def distance(origin: np.ndarray, destination: np.ndarray) -> int:
+    return np.linalg.norm(origin-destination)
+
+
+### UNUSED ###
+
 @cache
 def add(*vectors: tuple[float]) -> tuple[float]:
     '''Adds together multiple vectors
