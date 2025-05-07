@@ -25,11 +25,7 @@ class Map:
         return self._axes
     
     def check_position(self, position: list[int]) -> ColorEnum:
-        found = self._img
-        for axis in position:
-            found = found[axis]
-
-        return get_color(found)
+        return get_color(self._img[*position])
     
     def find_positions(self, color: ColorEnum) -> list[list[int]]:
         positions = [position for position, pixel in drill(self._img)
