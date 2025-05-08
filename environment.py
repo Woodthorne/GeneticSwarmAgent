@@ -7,19 +7,20 @@ from map import Map
 from particle import Particle
 from signals import ColorEnum
 
-from utils import drill, get_color
-
 class Environment:
     def __init__(
             self,
             map: Map,
             agent: Agent,
-            sensor_radius: int = 15
+            sensor_radius: int = 10,
+            collisions: bool = True
     ) -> None:
         self._map = map
         self._agent = agent
+        self._sensor_radius = sensor_radius
+        self._collisions = collisions
+        
         self._swarm: list[Particle] = []
-        self._sensor_radius: int = sensor_radius
         self._is_done: bool = False
         self._latest_percept: dict[str, np.ndarray|list[list[int]]] = {}
         self._latest_percept['view'] = np.full(self._map.img.shape, 100)
@@ -79,9 +80,10 @@ class Environment:
                 + exploitation * random.random() * (best_position - particle.position)
             ).astype(np.int64)
             particle.move(new_velocity, fitness_func)
-            # assert all([0 for _ in self._map.axes] < particle.position) \
-            #      and all(particle.position < self._map.axes), \
-            #         f'Collision at {particle.position}'
+            if self._collisions:
+                assert all([0 for _ in self._map.axes] < particle.position) \
+                     and all(particle.position < self._map.axes), \
+                        f'Collision at {particle.position}'
             try:
                 percept['view'][*particle.position] = [0, 0, 255]
             except IndexError:
