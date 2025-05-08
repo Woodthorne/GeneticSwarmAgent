@@ -72,7 +72,7 @@ class Environment:
         exploitation: float = random.random()
 
         best_position = self._swarm[0].best_position
-        print(self._swarm[0].fitness)
+        # print(self._swarm[0].fitness)
         for particle in self._swarm:
             new_velocity = (
                 inertia * particle.velocity \
