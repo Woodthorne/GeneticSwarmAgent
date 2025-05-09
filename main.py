@@ -3,21 +3,38 @@ import numpy as np
 
 from agent import Agent
 from environment import Environment
-from map import Map
+from map import AbstractMap, ImgMap
 from signals import ColorEnum
 
 
-def main(map_name: str, swarm_size: int = 10) -> None:
-    map_ = Map(map_name = map_name)
-    agent = Agent(
-        map_shape = map_.axes,
-        target_area = map_.find_positions(ColorEnum.GREEN)
-    )
+def main(map_name: str = None, swarm_size: int = 10, collisions: bool = True) -> None:
+    if map_name:
+        map_ = ImgMap(map_name = map_name)
+        agent = Agent(
+            map_shape = map_.axes,
+            target_area = map_.find_positions(ColorEnum.GREEN),
+            map_type = type(map_)
+        )
+    else:
+        map_ = AbstractMap(
+            axes = (150, 200),
+            start_zone = ((10, 10), (50, 50)),
+            goal_zone = ((100, 150), (140, 190)),
+            obstacles = [
+                ((20, 101), (130, 99))
+            ]
+        )
+        agent = Agent(
+            map_shape = map_.axes,
+            target_area = map_.goal,
+            map_type = type(map_)
+        )
+    
     environment = Environment(
         map = map_,
         agent = agent,
         sensor_radius = 10,
-        collisions = False
+        collisions = collisions
     )
     environment.populate_swarm(swarm_size)
     while not environment.is_done:

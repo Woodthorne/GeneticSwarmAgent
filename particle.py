@@ -2,6 +2,8 @@ from typing import Callable
 
 import numpy as np
 
+from utils import Vector
+
 class Particle:
     def __init__(
             self,
@@ -42,7 +44,8 @@ class Particle:
     def velocity(self) -> np.ndarray:
         return self._velocity.copy()
     
-    def move(self, new_velocity: list[float],new_fitness_func: Callable) -> None:
+    def move(self, new_velocity: list[float],new_fitness_func: Callable) -> Vector:
+        old_position = self._position
         self._position = self.position + self._velocity
         self._velocity = new_velocity
         self._fitness_func = new_fitness_func
@@ -50,4 +53,6 @@ class Particle:
         if self.fitness > self.best_fitness:
             self._best_fitness = self.fitness
             self._best_position = self.position
+        
+        return np.array([old_position, self._position])
         
