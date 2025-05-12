@@ -23,21 +23,35 @@ class Agent:
         self._map_shape = map_shape
         self._target_area = target_area
         self._map_type = map_type
+        self._checkpoint = None
     
     @property
     def target_area(self) -> np.ndarray:
         return self._target_area.copy()
 
-    def new_fitness_func(self, percept: dict) -> Callable:
+    def new_fitness_func(self, percept: dict[str, np.ndarray]) -> Callable:
+        swarm_center = np.sum(percept['swarm_pos'], axis = 0) / percept['swarm_pos'].shape[1]
         destination = random.choice(self._target_area)
-        origin = np.sum(percept['swarm_pos'], axis = 0) / percept['swarm_pos'].shape[1]
+        
+        print(percept['obstacles'])
+
+        if self._checkpoint:
+            check_point_distance = euclidean(self._checkpoint, destination)
+            swarm_distance = euclidean(swarm_center, destination)
+            if check_point_distance < swarm_distance:
+                def func(position: Iterable) -> float:
+                    return -euclidean(position, self._checkpoint)
+        
         if self._map_type == ImgMap:
-            goal = self.a_star(origin, destination, percept['view'])
+            self._checkpoint = self.a_star(swarm_center, destination, percept['view'])
         else:
-            goal = self.a_star(origin, destination, percept['obstacles'])
+            self._checkpoint = self.a_star(swarm_center, destination, percept['obstacles'])
+        
         # TODO: Use genetics to determine fitness based on percept
+        
         def func(position: Iterable) -> float:
-            return -euclidean(position, goal)
+            return -euclidean(position, self._checkpoint)
+        
         return func
     
     def a_star(self, origin: np.ndarray, destination: np.ndarray, map_: np.ndarray):
