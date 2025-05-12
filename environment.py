@@ -69,8 +69,16 @@ class Environment:
             self._swarm.append(drone)
     
     def step(self) -> np.ndarray:
+        self._swarm.sort(key=lambda p: p.fitness)
         percept = {}
         percept['swarm_pos'] = np.array([drone.position for drone in self._swarm])
+        percept['swarm_data'] = np.array([(drone.position, drone.velocity, drone.best_position) for drone in self._swarm])
+        
+        # print('##############')
+        # swarm_data = np.array([(drone.position, drone.velocity) for drone in self._swarm])
+        # print(self._swarm[0].position, self._swarm[0].velocity)
+        # print(swarm_data[0, 0] + 2 * swarm_data[0, 1])
+        
         if isinstance(self._map, ImgMap):
             percept['view'] = self._latest_percept['view'].copy()
             # percept['view'] = np.full(self._map.img.shape, 100)
@@ -98,19 +106,14 @@ class Environment:
                     for obstacle in self._map._obstacles:
                         intersect, point = intersection(sight_vector, obstacle)
                         if intersect:
-                            print(obstacle)
+                            # print(obstacle)
                             percept['obstacles'] = np.vstack((percept['obstacles'], point))
             percept['obstacles'] = np.unique(percept['obstacles'], axis = 0)
+            print(f'Currently tracking {len(percept['obstacles'])} obstacles.')
         
         self._latest_percept = percept
-        fitness_func = self._agent.new_fitness_func(percept)
-        self._swarm.sort(key=lambda p: p.fitness, reverse=True)
+        fitness_func, inertia, exploration, exploitation = self._agent.new_fitness_func(percept)
         
-        # TODO: set variabes
-        inertia: float = 0.5
-        exploration: float = 0.5
-        exploitation: float = 0.5
-
         best_position = self._swarm[0].best_position
         # print(self._swarm[0].fitness)
         frame = np.full((*self._map.axes, 3), 255)
