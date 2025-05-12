@@ -4,7 +4,7 @@ import numpy as np
 
 from utils import Vector
 
-class Particle:
+class Drone:
     def __init__(
             self,
             id_num: int,

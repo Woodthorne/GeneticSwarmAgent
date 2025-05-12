@@ -5,7 +5,7 @@ import numpy as np
 
 from agent import Agent
 from map import AbstractMap, ImgMap
-from particle import Particle
+from drone import Drone
 from signals import ColorEnum
 from utils import intersection, sightline
 
@@ -22,9 +22,9 @@ class Environment:
         self._sensor_radius = sensor_radius
         self._collisions = collisions
         
-        self._swarm: list[Particle] = []
+        self._swarm: list[Drone] = []
         self._is_done: bool = False
-        self._latest_percept: dict[str, np.ndarray|list[list[int]]] = {}
+        self._latest_percept: dict[str, np.ndarray] = {}
         if isinstance(self._map, ImgMap):
             self._latest_percept['view'] = np.full(self._map.img.shape, 100)
         else:
@@ -37,10 +37,9 @@ class Environment:
     def populate_swarm(self, count: int) -> None:
         if isinstance(self._map, ImgMap):
             starting_positions = self._map.find_positions(ColorEnum.BLUE)
-            for particle in self._swarm:
-                mask = (starting_positions != particle.position).any(axis = 1)
+            for drone in self._swarm:
+                mask = (starting_positions != drone.position).any(axis = 1)
                 starting_positions = starting_positions[mask]
-        
         
         for _ in range(count):
             id_num = len(self._swarm)
@@ -51,8 +50,8 @@ class Environment:
                 starting_positions = starting_positions[mask]
             else:
                 occupied_positions = np.zeros((0, len(self._map.axes)))
-                for particle in self._swarm:
-                    occupied_positions = np.vstack([occupied_positions, particle.position])
+                for drone in self._swarm:
+                    occupied_positions = np.vstack([occupied_positions, drone.position])
                 while True:
                     position = np.array(
                         [random.random() * (ax1 - ax0) + ax0
@@ -61,33 +60,45 @@ class Environment:
                     if np.all(position not in occupied_positions):
                         break
             
-            particle = Particle(
+            drone = Drone(
                 id_num = id_num,
                 position = position,
                 velocity = np.zeros([len(position)], dtype=np.int64),
                 fitness_func = lambda _: 0
             )
-            self._swarm.append(particle)
+            self._swarm.append(drone)
     
     def step(self) -> np.ndarray:
         percept = {}
-        percept['swarm_pos'] = np.array([particle.position for particle in self._swarm])
+        percept['swarm_pos'] = np.array([drone.position for drone in self._swarm])
         if isinstance(self._map, ImgMap):
             percept['view'] = self._latest_percept['view'].copy()
             # percept['view'] = np.full(self._map.img.shape, 100)
-            for particle in self._swarm:
+            for drone in self._swarm:
                 mask = [slice(max(axis - self._sensor_radius, 0),
                             axis + self._sensor_radius + 1)
-                        for axis in particle.position]
+                        for axis in drone.position]
                 percept['view'][*mask] = self._map.img[*mask] # TODO: Fix conversion from [0,0,0] to ColorEnum
         else:
             percept['obstacles'] = self._latest_percept['obstacles'].copy()
-            for particle in self._swarm:
+            for drone in self._swarm:
+                # sight_vectors = [sightline(drone.position,
+                #                            self._sensor_radius,
+                #                            angle)
+                #                  for angle in range(360)]
+                # intersections = [intersection(vector, obstacle)
+                #                  for vector in sight_vectors
+                #                  for obstacle in self._map._obstacles]
+                # for intersect, point in intersections:
+                #     if intersect:
+                #         percept['obstacles'] = np.vstack((percept['obstacles'], point))
+                        
                 for angle in range(360):
-                    sight_vector = sightline(particle.position, self._sensor_radius, angle)
+                    sight_vector = sightline(drone.position, self._sensor_radius, angle)
                     for obstacle in self._map._obstacles:
                         intersect, point = intersection(sight_vector, obstacle)
                         if intersect:
+                            print(obstacle)
                             percept['obstacles'] = np.vstack((percept['obstacles'], point))
             percept['obstacles'] = np.unique(percept['obstacles'], axis = 0)
         
@@ -96,24 +107,24 @@ class Environment:
         self._swarm.sort(key=lambda p: p.fitness, reverse=True)
         
         # TODO: set variabes
-        inertia: float = random.random()
-        exploration: float = random.random()
-        exploitation: float = random.random()
+        inertia: float = 0.5
+        exploration: float = 0.5
+        exploitation: float = 0.5
 
         best_position = self._swarm[0].best_position
         # print(self._swarm[0].fitness)
         frame = np.full((*self._map.axes, 3), 255)
-        for particle in self._swarm:
+        for drone in self._swarm:
             new_velocity = (
-                inertia * particle.velocity \
-                + exploration * random.random() * (particle.best_position - particle.position) \
-                + exploitation * random.random() * (best_position - particle.position)
+                inertia * drone.velocity \
+                + exploration * random.random() * (drone.best_position - drone.position) \
+                + exploitation * random.random() * (best_position - drone.position)
             ).astype(np.int64)
-            move_vector = particle.move(new_velocity, fitness_func)
+            move_vector = drone.move(new_velocity, fitness_func)
             if self._collisions and isinstance(self._map, ImgMap):
-                if not all([0 for _ in self._map.axes] < particle.position) \
-                or not all(particle.position < self._map.axes):
-                    print(f'Collision occured at {particle.position}')
+                if not all([0 for _ in self._map.axes] < drone.position) \
+                or not all(drone.position < self._map.axes):
+                    print(f'Collision occured at {drone.position}')
                     cv2.waitKey(0) & 0xFF == ord('q')
                     quit()
             elif self._collisions:
@@ -125,20 +136,20 @@ class Environment:
                         quit()
             if isinstance(self._map, ImgMap):
                 try:
-                    percept['view'][*particle.position] = [0, 0, 255]
+                    percept['view'][*drone.position] = [0, 0, 255]
                 except IndexError:
                     pass
             else:
 
-                frame[*particle.position.astype(dtype=np.int8)] = [0, 0, 255]
+                frame[*drone.position.astype(dtype=np.int8)] = [0, 0, 255]
 
         if isinstance(self._map, ImgMap):
-            if all(particle.position in self._agent.target_area for particle in self._swarm):
+            if all(drone.position in self._agent.target_area for drone in self._swarm):
                 self._is_done = True
             
             return percept['view']
         else:
-            if all(self._map.in_goal(particle.position) for particle in self._swarm):
+            if all(self._map.in_goal(drone.position) for drone in self._swarm):
                 self._is_done = True
 
             for obstacle in percept['obstacles']:
