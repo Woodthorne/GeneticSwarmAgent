@@ -1,3 +1,5 @@
+from timeit import default_timer
+
 import cv2
 import numpy as np
 
@@ -43,7 +45,9 @@ def main(map_name: str = None, swarm_size: int = 10, collisions: bool = True, se
     while not environment.is_done:
         cycles += 1
         print('Running cycle', cycles)
+        cycle_start = default_timer()
         new_frame = environment.step()
+        print(f'Cycle {cycles} complete. Elapsed time: {round(default_timer() - cycle_start, 3)} s')
         cv2.imshow('frame', new_frame.astype(np.uint8))
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
