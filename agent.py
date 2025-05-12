@@ -1,6 +1,7 @@
 import heapq
 import random
 from collections import defaultdict
+from functools import cache
 from typing import Callable, Iterable
 
 import numpy as np
@@ -30,10 +31,10 @@ class Agent:
         return self._target_area.copy()
 
     def new_fitness_func(self, percept: dict[str, np.ndarray]) -> Callable:
-        swarm_center = np.sum(percept['swarm_pos'], axis = 0) / percept['swarm_pos'].shape[1]
+        swarm_center = np.sum(percept['swarm_data'][:, 0, :], axis = 0) / percept['swarm_data'].shape[-1]
         destination = random.choice(self._target_area)
         
-        print(percept['obstacles'])
+        # print(percept['obstacles'])
 
         if self._checkpoint:
             check_point_distance = euclidean(self._checkpoint, destination)
@@ -47,12 +48,12 @@ class Agent:
         else:
             self._checkpoint = self.a_star(swarm_center, destination, percept['obstacles'])
         
-        # TODO: Use genetics to determine fitness based on percept
-        
         def func(position: Iterable) -> float:
-            return -euclidean(position, self._checkpoint)
+            return euclidean(position, self._checkpoint)
         
-        return func
+        inertia, exploration, exploitation = self.genetic_params(percept['swarm_data'], percept['obstacles'], func)
+        
+        return func, inertia, exploration, exploitation
     
     def a_star(self, origin: np.ndarray, destination: np.ndarray, map_: np.ndarray):
         frontier = []
@@ -89,9 +90,6 @@ class Agent:
                     for obstacle in map_:
                         if collision((current, neighbor), obstacle):
                             continue
-                    # intersect, position = collision()
-                    # result = np.any(neighbor == map_, axis=0)
-                    # print(result)
 
                 new_cost = current_cost[tuple(current)] + 1
                 if new_cost < current_cost[tuple(neighbor)]:
@@ -113,3 +111,69 @@ class Agent:
                     route.append(reachable_dest)
             
             return route
+        
+    def genetic_params(self, drone_data: np.ndarray, obstacles: np.ndarray, global_fitness_func: Callable) -> tuple[float, float, float]:
+        row, *_, dims = drone_data.shape
+        best_position = np.full((row, dims), drone_data[0, 2, :][0])
+        
+        @cache
+        def genetic_fitness(genome: tuple[float, float, float]) -> float:    
+            inertia, exploration, exploitation = genome
+            data = drone_data.copy()
+            data[:, 0, :] = data[:, 0, :] + data[:, 1, :]
+
+            data[:, 1, :] = (
+                inertia * data[:, 1, :] \
+                + exploration * (data[:, 2, :] - data[:, 0, :]) \
+                + exploitation * (best_position - data[:, 0, :])
+            ).astype(np.int64)
+
+            for vector in data[:, 0:2, :]:
+                collisions = [collision(vector, obstacle)
+                              for obstacle in obstacles]
+                if any(collisions):
+                    return float('inf')
+            
+            swarm_center = np.sum(data[:, 0, :], axis = 0) / data.shape[-1]
+            return global_fitness_func(swarm_center)
+    
+        generation = 0
+        population_size = 20
+        population = [tuple(random.random() for _ in range(3))
+                      for _ in range(population_size)]
+
+        best_fitness = genetic_fitness(population[0])
+        repeated_scores = 0
+        repetition_limit = 10
+        stability = 0.9
+
+        while repeated_scores < repetition_limit:
+            generation += 1
+            population.sort(key=genetic_fitness)
+            
+            legacy_size = len(population) // 10
+            pairing_size = len(population) // 2
+
+            new_population = population[:legacy_size]
+            while len(new_population) < len(population):
+                pair = random.sample(population[:pairing_size], 2)
+                new_genome = []
+                for val_a, val_b in zip(*pair):
+                    prob = random.random()
+                    if prob < stability / 2:
+                        new_genome.append(val_a)
+                    elif prob < stability:
+                        new_genome.append(val_b)
+                    else:
+                        new_genome.append(random.random())
+                new_population.append(tuple(new_genome))
+            
+            population = new_population
+            new_fitness = genetic_fitness(population[0])
+            if best_fitness > new_fitness:
+                best_fitness = new_fitness
+                repeated_scores = 0
+            else:
+                repeated_scores += 1
+        
+        return population[0]
