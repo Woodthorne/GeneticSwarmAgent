@@ -54,18 +54,17 @@ class AbstractMap:
                 sightline(axes, axes[1] + 1, 270)
         ]
         self._obstacles.extend(border)
-        
     
     @property
     def axes(self) -> tuple[int, ...]:
         return self._axes
     
     @property
-    def start(self) -> Vector:
+    def start(self) -> np.ndarray:
         return self._start
 
     @property
-    def goal(self) -> Vector:
+    def goal(self) -> np.ndarray:
         return self._goal
     
     def in_start(self, point: Point) -> bool:
