@@ -7,7 +7,7 @@ from map import AbstractMap, ImgMap
 from signals import ColorEnum
 
 
-def main(map_name: str = None, swarm_size: int = 10, collisions: bool = True) -> None:
+def main(map_name: str = None, swarm_size: int = 10, collisions: bool = True, sensor_radius: int = 10) -> None:
     if map_name:
         map_ = ImgMap(map_name = map_name)
         agent = Agent(
@@ -21,7 +21,7 @@ def main(map_name: str = None, swarm_size: int = 10, collisions: bool = True) ->
             start_zone = ((10, 10), (50, 50)),
             goal_zone = ((100, 150), (140, 190)),
             obstacles = [
-                ((20, 101), (130, 99))
+                ((20, 100), (130, 100))
             ]
         )
         agent = Agent(
@@ -33,17 +33,23 @@ def main(map_name: str = None, swarm_size: int = 10, collisions: bool = True) ->
     environment = Environment(
         map = map_,
         agent = agent,
-        sensor_radius = 10,
+        sensor_radius = sensor_radius,
         collisions = collisions
     )
+
     environment.populate_swarm(swarm_size)
+
+    cycles = 0
     while not environment.is_done:
+        cycles += 1
+        print('Running cycle', cycles)
         new_frame = environment.step()
         cv2.imshow('frame', new_frame.astype(np.uint8))
-        if cv2.waitKey(200) & 0xFF == ord('q'):
+        if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
 
 if __name__ == '__main__':
-    map_name = 'sample.png'
-    main(map_name)
+    # map_name = 'sample.png'
+    map_name = None
+    main(map_name, collisions=False, sensor_radius=50)
