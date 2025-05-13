@@ -48,10 +48,10 @@ class AbstractMap:
         self._goal = np.array(goal_zone)
         self._obstacles = [np.array(vector) for vector in obstacles]
         border = [
-                sightline((-1, -1), axes[0] + 1, 0),
-                sightline((-1, -1), axes[1] + 1, 90),
-                sightline(axes, axes[0] + 1, 180),
-                sightline(axes, axes[1] + 1, 270)
+                sightline((0, 0), axes[0], 0),
+                sightline((0, 0), axes[1], 90),
+                sightline(axes, axes[0], 180),
+                sightline(axes, axes[1], 270)
         ]
         self._obstacles.extend(border)
     
@@ -66,6 +66,10 @@ class AbstractMap:
     @property
     def goal(self) -> np.ndarray:
         return self._goal
+    
+    @property
+    def obstacles(self) -> list[np.ndarray]:
+        return self._obstacles.copy()
     
     def in_start(self, point: Point) -> bool:
         return inside_zone(point, self.start)
