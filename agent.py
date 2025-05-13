@@ -36,17 +36,18 @@ class Agent:
         
         # print(percept['obstacles'])
 
-        if self._checkpoint:
+        if np.any(self._checkpoint):
             check_point_distance = euclidean(self._checkpoint, destination)
-            swarm_distance = euclidean(swarm_center, destination)
-            if check_point_distance < swarm_distance:
-                def func(position: Iterable) -> float:
-                    return -euclidean(position, self._checkpoint)
-        
-        if self._map_type == ImgMap:
-            self._checkpoint = self.a_star(swarm_center, destination, percept['view'])
         else:
-            self._checkpoint = self.a_star(swarm_center, destination, percept['obstacles'])
+            check_point_distance = float('inf')
+        
+        swarm_distance = euclidean(swarm_center, destination)
+        if swarm_distance < check_point_distance:
+            if self._map_type == ImgMap:
+                route = self.a_star(swarm_center, destination, percept['view'])
+            else:
+                route = self.a_star(swarm_center, destination, percept['obstacles'])
+            self._checkpoint = route[-1]
         
         def func(position: Iterable) -> float:
             return euclidean(position, self._checkpoint)
@@ -67,6 +68,8 @@ class Agent:
         min_distance = float('inf')
 
         while frontier:
+            # TODO: Figure out random crash during heappop
+            # print('frontier', frontier[0])
             _, current = heapq.heappop(frontier)
             distance = euclidean(current, destination)
             if distance < min_distance:
@@ -98,19 +101,19 @@ class Agent:
                     heapq.heappush(frontier, (priority, neighbor))
                     prev_pos[tuple(neighbor)] = current
         
-            route = []
-            current = destination
-            while np.all(current):
-                route.append(current)
-                current = prev_pos.get(tuple(current))
-            route.reverse()
+        route = []
+        current = destination
+        while np.all(current):
+            route.append(current)
+            current = prev_pos.get(tuple(current))
+        route.reverse()
 
-            if not route or np.all(route[0] != origin):
-                route = [origin]
-                if np.all(reachable_dest):
-                    route.append(reachable_dest)
-            
-            return route
+        if not route or np.all(route[0] != origin):
+            route = [origin]
+            if np.all(reachable_dest):
+                route.append(reachable_dest)
+        
+        return route
         
     def genetic_params(self, drone_data: np.ndarray, obstacles: np.ndarray, global_fitness_func: Callable) -> tuple[float, float, float]:
         row, *_, dims = drone_data.shape
