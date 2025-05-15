@@ -98,9 +98,9 @@ class Agent:
             for movement in [[0, -step_size], [0, step_size],
                              [-step_size, 0], [step_size, 0]]:
                 neighbor = current + movement
-                if not all([0 for _ in self._map_shape] < neighbor) \
-                or not all(neighbor < self._map_shape):
-                    continue
+                # if not all([0 for _ in self._map_shape] < neighbor) \
+                # or not all(neighbor < self._map_shape):
+                #     continue
 
                 if self._map_type == ImgMap:
                     location = map_[*neighbor]
@@ -148,7 +148,6 @@ class Agent:
         row, *_, dims = drone_data.shape
         best_position = np.full((row, dims), drone_data[0, 2, :][0])
         
-        @cache
         def genetic_fitness(genome: tuple[float, float, float]) -> float:    
             inertia, exploration, exploitation = genome
             data = drone_data.copy()
