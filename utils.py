@@ -11,6 +11,10 @@ type Point = tuple[float, ...]
 type Vector = tuple[Point, Point]
 
 
+def dev_print(*values, sep = None, end = None, file = None, flush = None) -> None:
+    print('DEV', *values, sep=sep, end=end, file=file, flush=flush)
+
+
 def drill(array: np.ndarray) -> Iterator[tuple[list[int], np.ndarray]]:
     subarray: np.ndarray
     for index, subarray in enumerate(array):
@@ -131,11 +135,11 @@ def obstacle_in_view(vector: Vector, position: Point, radius: float) -> tuple[in
         
         return (2, np.array(i_vector))
     else:
-        print('Possible tangent')
-        print('x:', ix1 == ix2)
-        print('y:', iy1 == iy2)
-        print(np.array(ix1, iy1))
-        print(np.array(ix2, iy2))
+        dev_print('Possible tangent')
+        dev_print('x:', ix1 == ix2)
+        dev_print('y:', iy1 == iy2)
+        dev_print(np.array(ix1, iy1))
+        dev_print(np.array(ix2, iy2))
         quit()
     
     # generalised circle = (x-a)**2 + (y-b)**2 == r**2
