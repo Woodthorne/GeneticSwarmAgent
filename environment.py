@@ -7,7 +7,7 @@ from agent import Agent
 from map import AbstractMap, ImgMap
 from drone import Drone
 from signals import ColorEnum
-from utils import intersection, obstacle_in_view, get_discrete_coords, merge_vectors
+from utils import intersection, obstacle_in_view, get_discrete_coords, merge_vectors, dev_print
 
 class Environment:
     def __init__(
@@ -30,7 +30,6 @@ class Environment:
             self._latest_percept['view'] = np.full(self._map.img.shape, 100)
         else:
             self._latest_percept['obstacles'] = []
-            # self._latest_percept['obstacles'] = np.zeros((0, len(self._map.axes)))
     
     @property
     def is_done(self) -> bool:
@@ -72,13 +71,11 @@ class Environment:
     
     def step(self) -> np.ndarray:
         self._swarm.sort(key=lambda p: p.fitness)
-        print('location')
-        print(self._swarm[0].position)
-        print('swarm_fitness', [int(p.fitness) for p in self._swarm])
+        dev_print('location', self._swarm[0].position)
+        dev_print('swarm_fitness', [int(p.fitness) for p in self._swarm])
         percept = {}
         percept['swarm_pos'] = np.array([drone.position for drone in self._swarm])
         percept['swarm_data'] = np.array([(drone.position, drone.velocity, drone.best_position) for drone in self._swarm])
-        # print(percept['swarm_pos'])
         
         if isinstance(self._map, ImgMap):
             percept['view'] = self._latest_percept['view'].copy()
@@ -99,7 +96,8 @@ class Environment:
             self._detections.extend(detections)
             self._detections = merge_vectors(self._detections)
 
-            percept['obstacles'] = np.array(self._detections)
+            percept['obstacles'] = np.array(self._map.obstacles)
+            # percept['obstacles'] = np.array(self._detections)
             percept['obstacles'] = np.unique(percept['obstacles'], axis = 0)
             print(f'Currently tracking {len(percept['obstacles'])} obstacles.')
         
@@ -126,8 +124,8 @@ class Environment:
                     intersect, position = intersection(move_vector, obstacle)
                     if intersect:
                         print(f'Collision occured at {position}')
-                        print(move_vector)
-                        print(percept['obstacles'])
+                        dev_print(move_vector)
+                        dev_print(percept['obstacles'])
                         cv2.waitKey(0) & 0xFF == ord('q')
                         quit()
             if isinstance(self._map, ImgMap):
