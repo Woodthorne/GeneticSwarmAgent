@@ -31,7 +31,7 @@ def main(
         target_area = map_.goal,
         map_type = type(map_)
     )
-    
+
     environment = Environment(
         map = map_,
         agent = agent,
@@ -56,7 +56,8 @@ def main(
         print('Running cycle', cycles)
         cycle_start = default_timer()
         new_frame = environment.step()
-        print(f'Cycle {cycles} complete. Elapsed time: {round(default_timer() - cycle_start, 3)} s')
+        cycle_time = round(default_timer() - cycle_start, 3)
+        print(f'Cycle {cycles} complete. Elapsed time: {cycle_time} s')
         cv2.imshow('frame', new_frame.astype(np.uint8))
         if cv2.waitKey(100) & 0xFF == ord('q'):
             break
@@ -78,4 +79,6 @@ if __name__ == '__main__':
         ]   
     )
     # map_name = None
-    main(map_params=abstract_map_params, collisions=False, sensor_radius=50)
+    main(map_params=abstract_map_params,
+         collisions=False,
+         sensor_radius=50)
