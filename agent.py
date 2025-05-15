@@ -8,10 +8,7 @@ import numpy as np
 
 from map import AbstractMap, ImgMap
 from signals import ColorEnum
-from utils import euclidean, get_color, collision
-
-
-STEP_SIZE = 10
+from utils import euclidean, get_color, intersection, to_tuple
 
 
 class Agent:
@@ -25,6 +22,7 @@ class Agent:
         self._target_area = target_area
         self._map_type = map_type
         self._checkpoint = None
+        self._step_size = min(map_shape) // 10
     
     @property
     def target_area(self) -> np.ndarray:
@@ -48,6 +46,7 @@ class Agent:
             else:
                 route = self.a_star(swarm_center, destination, percept['obstacles'])
             self._checkpoint = route[-1]
+            print('new checkpoint:', self._checkpoint)
         
         def func(position: Iterable) -> float:
             return euclidean(position, self._checkpoint)
@@ -57,29 +56,34 @@ class Agent:
         return func, inertia, exploration, exploitation
     
     def a_star(self, origin: np.ndarray, destination: np.ndarray, map_: np.ndarray):
+        t_origin = to_tuple(origin)
+        t_destination = to_tuple(destination)
         frontier = []
-        heapq.heappush(frontier, (0, origin))
-        prev_pos = {tuple(origin): None}
+        heapq.heappush(frontier, (0, t_origin))
+        prev_pos = {t_origin: None}
         
         current_cost = defaultdict(lambda: float('inf'))
-        current_cost[tuple(origin)] = 0
+        current_cost[t_origin] = 0
 
-        reachable_dest = None
+        t_reachable_dest = None
         min_distance = float('inf')
 
         while frontier:
             # TODO: Figure out random crash during heappop
             # print('frontier', frontier[0])
-            _, current = heapq.heappop(frontier)
-            distance = euclidean(current, destination)
+            _, t_current = heapq.heappop(frontier)
+            distance = euclidean(t_current, destination)
             if distance < min_distance:
-                reachable_dest = current
+                t_reachable_dest = t_current
                 min_distance = distance
             
-            if tuple(current) == tuple(destination):
+            if t_current == t_destination:
                 break
 
-            for movement in [[0, -STEP_SIZE], [0, STEP_SIZE], [-STEP_SIZE, 0], [STEP_SIZE, 0]]:
+            current = np.array(t_current)
+            step_size = random.randint(0, self._step_size)
+            for movement in [[0, -step_size], [0, step_size],
+                             [-step_size, 0], [step_size, 0]]:
                 neighbor = current + movement
                 if not all([0 for _ in self._map_shape] < neighbor) \
                 or not all(neighbor < self._map_shape):
@@ -91,27 +95,29 @@ class Agent:
                         continue
                 else:
                     for obstacle in map_:
-                        if collision((current, neighbor), obstacle):
+                        if intersection(np.array([current, neighbor]), obstacle):
                             continue
 
-                new_cost = current_cost[tuple(current)] + 1
+                new_cost = current_cost[t_current] + 1
                 if new_cost < current_cost[tuple(neighbor)]:
-                    current_cost[tuple(neighbor)] = new_cost
+                    t_neighbor = to_tuple(neighbor)
+                    current_cost[t_neighbor] = new_cost
                     priority = new_cost + euclidean(neighbor, destination)
-                    heapq.heappush(frontier, (priority, neighbor))
-                    prev_pos[tuple(neighbor)] = current
+                    heapq.heappush(frontier, (priority, t_neighbor))
+                    prev_pos[t_neighbor] = current
         
         route = []
-        current = destination
-        while np.all(current):
-            route.append(current)
-            current = prev_pos.get(tuple(current))
+        t_current = t_destination
+        while t_current:
+        # while np.all(t_current):
+            route.append(np.array(t_current))
+            t_current = prev_pos.get(t_current)
         route.reverse()
 
         if not route or np.all(route[0] != origin):
             route = [origin]
-            if np.all(reachable_dest):
-                route.append(reachable_dest)
+            if t_reachable_dest:
+                route.append(np.array(t_reachable_dest))
         
         return route
         
@@ -123,16 +129,19 @@ class Agent:
         def genetic_fitness(genome: tuple[float, float, float]) -> float:    
             inertia, exploration, exploitation = genome
             data = drone_data.copy()
+            # print(data[0])
             data[:, 0, :] = data[:, 0, :] + data[:, 1, :]
+            # print(data[0])
 
             data[:, 1, :] = (
                 inertia * data[:, 1, :] \
                 + exploration * (data[:, 2, :] - data[:, 0, :]) \
                 + exploitation * (best_position - data[:, 0, :])
             ).astype(np.int64)
+            # print(data[0])
 
             for vector in data[:, 0:2, :]:
-                collisions = [collision(vector, obstacle)
+                collisions = [intersection(vector, obstacle)
                               for obstacle in obstacles]
                 if any(collisions):
                     return float('inf')
