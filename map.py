@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 
 from signals import ColorEnum
-from utils import Point, Vector, drill, get_color, inside_zone, sightline
+from utils import Point, Vector, drill, get_color, inside_zone
 
 
 class ImgMap:
@@ -47,11 +47,12 @@ class AbstractMap:
         self._start = np.array(start_zone)
         self._goal = np.array(goal_zone)
         self._obstacles = [np.array(vector) for vector in obstacles]
+        rows, cols = axes
         border = [
-                sightline((0, 0), axes[0], 0),
-                sightline((0, 0), axes[1], 90),
-                sightline(axes, axes[0], 180),
-                sightline(axes, axes[1], 270)
+                np.array([(0, 0), (0, cols - 1)]),
+                np.array([(0, 0), (rows - 1, 0)]),
+                np.array([(rows - 1, cols - 1), (rows, 0)]),
+                np.array([(rows - 1, cols - 1), (0, cols)])
         ]
         self._obstacles.extend(border)
     
