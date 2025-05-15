@@ -51,8 +51,8 @@ class AbstractMap:
         border = [
                 np.array([(0, 0), (0, cols - 1)]),
                 np.array([(0, 0), (rows - 1, 0)]),
-                np.array([(rows - 1, cols - 1), (rows, 0)]),
-                np.array([(rows - 1, cols - 1), (0, cols)])
+                np.array([(rows - 1, cols - 1), (rows - 1, 0)]),
+                np.array([(rows - 1, cols - 1), (0, cols - 1)])
         ]
         self._obstacles.extend(border)
     
