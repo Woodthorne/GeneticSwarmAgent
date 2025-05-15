@@ -7,7 +7,7 @@ from agent import Agent
 from map import AbstractMap, ImgMap
 from drone import Drone
 from signals import ColorEnum
-from utils import intersection, sightline
+from utils import intersection, obstacle_in_view, get_discrete_coords, merge_vectors
 
 class Environment:
     def __init__(
@@ -25,10 +25,12 @@ class Environment:
         self._swarm: list[Drone] = []
         self._is_done: bool = False
         self._latest_percept: dict[str, np.ndarray] = {}
+        self._detections: list[np.ndarray] = []
         if isinstance(self._map, ImgMap):
             self._latest_percept['view'] = np.full(self._map.img.shape, 100)
         else:
-            self._latest_percept['obstacles'] = np.zeros((0, len(self._map.axes)))
+            self._latest_percept['obstacles'] = []
+            # self._latest_percept['obstacles'] = np.zeros((0, len(self._map.axes)))
     
     @property
     def is_done(self) -> bool:
@@ -70,14 +72,13 @@ class Environment:
     
     def step(self) -> np.ndarray:
         self._swarm.sort(key=lambda p: p.fitness)
+        print('location')
+        print(self._swarm[0].position)
+        print('swarm_fitness', [int(p.fitness) for p in self._swarm])
         percept = {}
         percept['swarm_pos'] = np.array([drone.position for drone in self._swarm])
         percept['swarm_data'] = np.array([(drone.position, drone.velocity, drone.best_position) for drone in self._swarm])
-        
-        # print('##############')
-        # swarm_data = np.array([(drone.position, drone.velocity) for drone in self._swarm])
-        # print(self._swarm[0].position, self._swarm[0].velocity)
-        # print(swarm_data[0, 0] + 2 * swarm_data[0, 1])
+        # print(percept['swarm_pos'])
         
         if isinstance(self._map, ImgMap):
             percept['view'] = self._latest_percept['view'].copy()
@@ -88,26 +89,17 @@ class Environment:
                         for axis in drone.position]
                 percept['view'][*mask] = self._map.img[*mask] # TODO: Fix conversion from [0,0,0] to ColorEnum
         else:
-            percept['obstacles'] = self._latest_percept['obstacles'].copy()
+            detections: list[np.ndarray] = []
             for drone in self._swarm:
-                # sight_vectors = [sightline(drone.position,
-                #                            self._sensor_radius,
-                #                            angle)
-                #                  for angle in range(360)]
-                # intersections = [intersection(vector, obstacle)
-                #                  for vector in sight_vectors
-                #                  for obstacle in self._map._obstacles]
-                # for intersect, point in intersections:
-                #     if intersect:
-                #         percept['obstacles'] = np.vstack((percept['obstacles'], point))
-                        
-                for angle in range(360):
-                    sight_vector = sightline(drone.position, self._sensor_radius, angle)
-                    for obstacle in self._map._obstacles:
-                        intersect, point = intersection(sight_vector, obstacle)
-                        if intersect:
-                            # print(obstacle)
-                            percept['obstacles'] = np.vstack((percept['obstacles'], point))
+                for obstacle in self._map.obstacles:
+                    count, coordinates = obstacle_in_view(obstacle, drone.position, self._sensor_radius)
+                    if count == 2:
+                        detections.append(coordinates)
+            
+            self._detections.extend(detections)
+            self._detections = merge_vectors(self._detections)
+
+            percept['obstacles'] = np.array(self._detections)
             percept['obstacles'] = np.unique(percept['obstacles'], axis = 0)
             print(f'Currently tracking {len(percept['obstacles'])} obstacles.')
         
@@ -115,7 +107,6 @@ class Environment:
         fitness_func, inertia, exploration, exploitation = self._agent.new_fitness_func(percept)
         
         best_position = self._swarm[0].best_position
-        # print(self._swarm[0].fitness)
         frame = np.full((*self._map.axes, 3), 255)
         for drone in self._swarm:
             new_velocity = (
@@ -131,10 +122,12 @@ class Environment:
                     cv2.waitKey(0) & 0xFF == ord('q')
                     quit()
             elif self._collisions:
-                for obstacle in self._map._obstacles:
+                for obstacle in self._map.obstacles:
                     intersect, position = intersection(move_vector, obstacle)
                     if intersect:
                         print(f'Collision occured at {position}')
+                        print(move_vector)
+                        print(percept['obstacles'])
                         cv2.waitKey(0) & 0xFF == ord('q')
                         quit()
             if isinstance(self._map, ImgMap):
@@ -155,6 +148,23 @@ class Environment:
             if all(self._map.in_goal(drone.position) for drone in self._swarm):
                 self._is_done = True
 
+            detections = []
             for obstacle in percept['obstacles']:
-                frame[*obstacle.astype(dtype=np.int8)] = [0, 0, 0]
+                points = get_discrete_coords(obstacle)
+                detections.append((obstacle, points))
+                for point in points:
+                    try:
+                        frame[*point] = [0, 0, 0]
+                    except IndexError:
+                        print('obstacle drawing issue')
+                        print(points)
+                        print(point)
+                        quit()
+
+                # frame[*obstacle.astype(dtype=np.int8)] = [0, 0, 0]
+            # print(detections)
+            # cv2.imshow('frame', frame.astype(np.uint8))
+            # cv2.waitKey(0) & 0xFF == ord('q')
+            # quit()
+
             return frame
