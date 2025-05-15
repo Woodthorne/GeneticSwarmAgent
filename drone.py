@@ -50,7 +50,7 @@ class Drone:
         self._velocity = new_velocity
         self._fitness_func = new_fitness_func
         self._fitness = new_fitness_func(self.position)
-        if self.fitness > self.best_fitness:
+        if self.fitness < self.best_fitness:
             self._best_fitness = self.fitness
             self._best_position = self.position
         
