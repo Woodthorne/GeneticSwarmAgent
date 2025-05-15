@@ -10,28 +10,27 @@ from map import AbstractMap, ImgMap
 from signals import ColorEnum
 
 
-def main(map_name: str = None, swarm_size: int = 10, collisions: bool = True, sensor_radius: int = 10) -> None:
-    if map_name:
-        map_ = ImgMap(map_name = map_name)
-        agent = Agent(
-            map_shape = map_.axes,
-            target_area = map_.find_positions(ColorEnum.GREEN),
-            map_type = type(map_)
-        )
-    else:
-        map_ = AbstractMap(
-            axes = (150, 200),
-            start_zone = ((10, 10), (50, 50)),
-            goal_zone = ((100, 150), (140, 190)),
-            obstacles = [
-                ((20, 100), (130, 100))
-            ]
-        )
-        agent = Agent(
-            map_shape = map_.axes,
-            target_area = map_.goal,
-            map_type = type(map_)
-        )
+def main(
+        map_params: dict,
+        swarm_size: int = 10,
+        collisions: bool = True,
+        sensor_radius: int = 10
+) -> None:
+    # if map_name:
+    #     map_ = ImgMap(map_name = map_name)
+    #     agent = Agent(
+    #         map_shape = map_.axes,
+    #         target_area = map_.find_positions(ColorEnum.GREEN),
+    #         map_type = type(map_)
+    #     )
+    # else:
+    map_ = AbstractMap(**map_params)
+    
+    agent = Agent(
+        map_shape = map_.axes,
+        target_area = map_.goal,
+        map_type = type(map_)
+    )
     
     environment = Environment(
         map = map_,
@@ -68,6 +67,15 @@ def main(map_name: str = None, swarm_size: int = 10, collisions: bool = True, se
 
 
 if __name__ == '__main__':
-    # map_name = 'sample.png'
-    map_name = None
-    main(map_name, collisions=False, sensor_radius=50)
+    map_name = 'sample.png'
+    
+    abstract_map_params = dict(
+        axes = (150, 200),
+        start_zone = ((10, 10), (50, 50)),
+        goal_zone = ((100, 150), (140, 190)),
+        obstacles = [
+            ((20, 100), (130, 100))
+        ]   
+    )
+    # map_name = None
+    main(map_params=abstract_map_params, collisions=False, sensor_radius=50)
