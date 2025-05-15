@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 
 from agent import Agent
+from drone import Drone
 from environment import Environment
 from map import AbstractMap, ImgMap
 from signals import ColorEnum
@@ -39,8 +40,17 @@ def main(map_name: str = None, swarm_size: int = 10, collisions: bool = True, se
         collisions = collisions
     )
 
+    # for num in range(10):
+    #     drone = Drone(
+    #         id_num=999 - num,
+    #         position=np.array((1 + num, 1 + num)),
+    #         velocity=np.array((0,0)),
+    #         fitness_func=np.sum
+    #     )
+    #     environment._swarm.append(drone)
+    
     environment.populate_swarm(swarm_size)
-
+    
     cycles = 0
     while not environment.is_done:
         cycles += 1
@@ -49,8 +59,12 @@ def main(map_name: str = None, swarm_size: int = 10, collisions: bool = True, se
         new_frame = environment.step()
         print(f'Cycle {cycles} complete. Elapsed time: {round(default_timer() - cycle_start, 3)} s')
         cv2.imshow('frame', new_frame.astype(np.uint8))
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        if cv2.waitKey(100) & 0xFF == ord('q'):
             break
+    if environment.is_done:
+        print('Simulation complete. Press Q to close.')
+        cv2.waitKey(0) & 0xFF == ord('q')
+    
 
 
 if __name__ == '__main__':
