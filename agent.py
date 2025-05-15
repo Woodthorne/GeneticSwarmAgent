@@ -32,8 +32,6 @@ class Agent:
         swarm_center = np.sum(percept['swarm_data'][:, 0, :], axis = 0) / percept['swarm_data'].shape[-1]
         destination = random.choice(self._target_area)
         
-        # print(percept['obstacles'])
-
         if np.any(self._checkpoint):
             check_point_distance = euclidean(self._checkpoint, destination)
         else:
@@ -70,8 +68,6 @@ class Agent:
         min_distance = float('inf')
 
         while frontier:
-            # TODO: Figure out random crash during heappop
-            # print('frontier', frontier[0])
             _, t_current = heapq.heappop(frontier)
             distance = euclidean(t_current, destination)
             if distance < min_distance:
@@ -110,7 +106,6 @@ class Agent:
         route = []
         t_current = t_destination
         while t_current:
-        # while np.all(t_current):
             route.append(np.array(t_current))
             t_current = prev_pos.get(t_current)
         route.reverse()
@@ -130,17 +125,14 @@ class Agent:
         def genetic_fitness(genome: tuple[float, float, float]) -> float:    
             inertia, exploration, exploitation = genome
             data = drone_data.copy()
-            # print(data[0])
             data[:, 0, :] = data[:, 0, :] + data[:, 1, :]
-            # print(data[0])
-
+            
             data[:, 1, :] = (
                 inertia * data[:, 1, :] \
                 + exploration * (data[:, 2, :] - data[:, 0, :]) \
                 + exploitation * (best_position - data[:, 0, :])
             ).astype(np.int64)
-            # print(data[0])
-
+            
             for vector in data[:, 0:2, :]:
                 collisions = [intersection(vector, obstacle)
                               for obstacle in obstacles]
