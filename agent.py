@@ -107,10 +107,14 @@ class Agent:
                     if get_color(location) == ColorEnum.BLACK:
                         continue
                 else:
+                    blocked = False
                     for obstacle in map_:
                         travel_vector = np.array([current, neighbor])
                         if intersection(travel_vector, obstacle):
-                            continue
+                            blocked = True
+                            break
+                    if blocked:
+                        continue
 
                 new_cost = current_cost[t_current] + 1
                 if new_cost < current_cost[tuple(neighbor)]:
