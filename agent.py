@@ -48,12 +48,13 @@ class Agent:
             self._checkpoint = route[-1]
             print('new checkpoint:', self._checkpoint)
         
-        def func(position: Iterable) -> float:
-            return euclidean(position, self._checkpoint)
+        def fitness_func(position: Iterable) -> float:
+            distance = euclidean(position, self._checkpoint)
+            return distance
         
-        inertia, exploration, exploitation = self.genetic_params(percept['swarm_data'], percept['obstacles'], func)
+        inertia, exploration, exploitation = self.genetic_params(percept['swarm_data'], percept['obstacles'], fitness_func)
         
-        return func, inertia, exploration, exploitation
+        return fitness_func, inertia, exploration, exploitation
     
     def a_star(self, origin: np.ndarray, destination: np.ndarray, map_: np.ndarray):
         t_origin = to_tuple(origin)
