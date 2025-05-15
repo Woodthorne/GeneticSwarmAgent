@@ -29,7 +29,9 @@ class Agent:
         return self._target_area.copy()
 
     def new_fitness_func(self, percept: dict[str, np.ndarray]) -> Callable:
-        swarm_center = np.sum(percept['swarm_data'][:, 0, :], axis = 0) / percept['swarm_data'].shape[-1]
+        sum_of_points = np.sum(percept['swarm_data'][:, 0, :], axis = 0)
+        num_of_points = percept['swarm_data'].shape[-1]
+        swarm_center = sum_of_points / num_of_points
         destination = random.choice(self._target_area)
         
         if np.any(self._checkpoint):
@@ -40,9 +42,13 @@ class Agent:
         swarm_distance = euclidean(swarm_center, destination)
         if swarm_distance < check_point_distance:
             if self._map_type == ImgMap:
-                route = self.a_star(swarm_center, destination, percept['view'])
+                route = self.a_star(swarm_center,
+                                    destination,
+                                    percept['view'])
             else:
-                route = self.a_star(swarm_center, destination, percept['obstacles'])
+                route = self.a_star(swarm_center,
+                                    destination,
+                                    percept['obstacles'])
             self._checkpoint = route[-1]
             print('new checkpoint:', self._checkpoint)
         
@@ -50,11 +56,21 @@ class Agent:
             distance = euclidean(position, self._checkpoint)
             return distance
         
-        inertia, exploration, exploitation = self.genetic_params(percept['swarm_data'], percept['obstacles'], fitness_func)
-        
+        genetic_iee = self.genetic_params(
+            percept['swarm_data'],
+            percept['obstacles'],
+            fitness_func
+        )
+        inertia, exploration, exploitation = genetic_iee
+
         return fitness_func, inertia, exploration, exploitation
     
-    def a_star(self, origin: np.ndarray, destination: np.ndarray, map_: np.ndarray):
+    def a_star(
+            self,
+            origin: np.ndarray,
+            destination: np.ndarray,
+            map_: np.ndarray
+    ) -> list[np.ndarray]:
         t_origin = to_tuple(origin)
         t_destination = to_tuple(destination)
         frontier = []
@@ -92,7 +108,8 @@ class Agent:
                         continue
                 else:
                     for obstacle in map_:
-                        if intersection(np.array([current, neighbor]), obstacle):
+                        travel_vector = np.array([current, neighbor])
+                        if intersection(travel_vector, obstacle):
                             continue
 
                 new_cost = current_cost[t_current] + 1
@@ -117,7 +134,13 @@ class Agent:
         
         return route
         
-    def genetic_params(self, drone_data: np.ndarray, obstacles: np.ndarray, global_fitness_func: Callable) -> tuple[float, float, float]:
+    def genetic_params(
+            self,
+            drone_data: np.ndarray,
+            obstacles: np.ndarray,
+            global_fitness_func: Callable
+    ) -> tuple[float, float, float]:
+        
         row, *_, dims = drone_data.shape
         best_position = np.full((row, dims), drone_data[0, 2, :][0])
         
