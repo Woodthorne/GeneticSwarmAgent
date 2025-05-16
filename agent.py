@@ -8,7 +8,7 @@ import numpy as np
 
 from map import AbstractMap, ImgMap
 from signals import ColorEnum
-from utils import euclidean, get_color, intersection, to_tuple
+from utils import euclidean, get_color, intersection, to_tuple, dev_print
 
 
 class Agent:
@@ -18,7 +18,7 @@ class Agent:
             target_area: np.ndarray,
             map_type: AbstractMap|ImgMap
     ) -> None:
-        self._map_shape = map_shape
+        # self._map_shape = map_shape
         self._target_area = target_area
         self._map_type = map_type
         self._checkpoint = None
@@ -40,7 +40,7 @@ class Agent:
             check_point_distance = float('inf')
         
         swarm_distance = euclidean(swarm_center, destination)
-        if swarm_distance < check_point_distance:
+        if swarm_distance < check_point_distance or True:
             if self._map_type == ImgMap:
                 route = self.a_star(swarm_center,
                                     destination,
@@ -50,7 +50,7 @@ class Agent:
                                     destination,
                                     percept['obstacles'])
             self._checkpoint = route[-1]
-            print('new checkpoint:', self._checkpoint)
+            dev_print('new checkpoint:', self._checkpoint)
         
         def fitness_func(position: Iterable) -> float:
             distance = euclidean(position, self._checkpoint)
@@ -140,31 +140,35 @@ class Agent:
         
     def genetic_params(
             self,
-            drone_data: np.ndarray,
+            swarm_data: np.ndarray,
             obstacles: np.ndarray,
             global_fitness_func: Callable
     ) -> tuple[float, float, float]:
         
-        row, *_, dims = drone_data.shape
-        best_position = np.full((row, dims), drone_data[0, 2, :][0])
+        row, *_, dims = swarm_data.shape
+        best_position = np.full((row, dims), swarm_data[:, 2, :][0])
         
         def genetic_fitness(genome: tuple[float, float, float]) -> float:    
             inertia, exploration, exploitation = genome
-            data = drone_data.copy()
-            data[:, 0, :] = data[:, 0, :] + data[:, 1, :]
+            data = swarm_data.copy()
+            new_positions = data[:, 0, :] + data[:, 1, :]
             
             data[:, 1, :] = (
                 inertia * data[:, 1, :] \
                 + exploration * (data[:, 2, :] - data[:, 0, :]) \
                 + exploitation * (best_position - data[:, 0, :])
-            ).astype(np.int64)
+            )
             
+            data[:, 0, :] = new_positions
+            data[:, 1, :] = data[:, 0, :] + data[:, 1, :]
             for vector in data[:, 0:2, :]:
-                collisions = [intersection(vector, obstacle)
+                collisions = [intersection(vector, obstacle)[0]
                               for obstacle in obstacles]
                 if any(collisions):
+                    # dev_print('BAD GENE', genome)
                     return float('inf')
             
+            # dev_print('GOOD GENE', genome)
             swarm_center = np.sum(data[:, 0, :], axis = 0) / data.shape[-1]
             return global_fitness_func(swarm_center)
     
@@ -176,9 +180,9 @@ class Agent:
         best_fitness = genetic_fitness(population[0])
         repeated_scores = 0
         repetition_limit = 10
-        stability = 0.9
+        stability = 0.8
 
-        while repeated_scores < repetition_limit:
+        while repeated_scores < repetition_limit or best_fitness == float('inf'):
             generation += 1
             population.sort(key=genetic_fitness)
             
