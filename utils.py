@@ -42,8 +42,9 @@ def get_color(array: np.ndarray) -> ColorEnum:
     raise ValueError(f'Unrecognised colour: {array}')
 
 
-def euclidean(origin: np.ndarray, destination: np.ndarray) -> int:
-    return np.linalg.norm(origin-destination)
+def euclidean(origin: np.ndarray, destination: np.ndarray) -> float:
+    distance = np.linalg.norm(origin-destination)
+    return float(distance)
 
 
 def inside_zone(point: Point, zone: Vector) -> bool:
