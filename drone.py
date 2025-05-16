@@ -2,7 +2,7 @@ from typing import Callable
 
 import numpy as np
 
-from utils import Vector
+from utils import Vector, dev_print
 
 class Drone:
     def __init__(
@@ -44,9 +44,9 @@ class Drone:
     def velocity(self) -> np.ndarray:
         return self._velocity.copy()
     
-    def move(self, new_velocity: list[float],new_fitness_func: Callable) -> Vector:
+    def move(self, new_velocity: list[float],new_fitness_func: Callable) -> np.ndarray:
         old_position = self._position
-        self._position = self.position + self._velocity
+        self._position = self.position + self.velocity
         self._velocity = new_velocity
         self._fitness_func = new_fitness_func
         self._fitness = new_fitness_func(self.position)
@@ -54,5 +54,10 @@ class Drone:
             self._best_fitness = self.fitness
             self._best_position = self.position
         
+        if any(self.position + self.velocity < 0):
+            dev_print('_____warning_____', )
+            dev_print('from ', self.position)
+            dev_print('speed', self.velocity)
+            dev_print('to   ', self.position + self.velocity)
         return np.array([old_position, self._position])
         
