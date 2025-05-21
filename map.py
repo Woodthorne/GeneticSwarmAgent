@@ -4,44 +4,16 @@ import cv2
 import numpy as np
 
 from signals import ColorEnum
-from utils import Point, Vector, drill, get_color, inside_zone
+from utils import Vector, Segment, drill, get_color, inside_zone
 
 
-class ImgMap:
-    def __init__(self, map_name: str) -> None:
-        self._img_path = Path('maps') / map_name
-        self._img: np.ndarray = cv2.imread(self._img_path)
-        self._axes: tuple[int, ...] = self.img.shape[:-1]
-
-    @property
-    def img(self) -> np.ndarray:
-        return self._img.copy()
-    
-    @property
-    def img_path(self) -> Path:
-        return self._img_path
-
-    @property
-    def axes(self) -> tuple[int, ...]:
-        return self._axes
-    
-    def check_position(self, position: list[int]) -> ColorEnum:
-        return get_color(self._img[*position])
-    
-    def find_positions(self, color: ColorEnum) -> np.ndarray:
-        positions = [position for position, pixel in drill(self._img)
-                     if get_color(pixel) == color]
-        
-        return np.array(positions)
-        
-    
 class AbstractMap:
     def __init__(
             self,
             axes: tuple[int, ...],
-            start_zone: Vector,
-            goal_zone: Vector,
-            obstacles: list[Vector]
+            start_zone: Segment,
+            goal_zone: Segment,
+            obstacles: list[Segment]
     ):
         self._axes = axes
         self._start = np.array(start_zone)
@@ -72,10 +44,39 @@ class AbstractMap:
     def obstacles(self) -> list[np.ndarray]:
         return self._obstacles.copy()
     
-    def in_start(self, point: Point) -> bool:
+    def in_start(self, point: Vector) -> bool:
         return inside_zone(point, self.start)
 
-    def in_goal(self, point: Point) -> bool:
+    def in_goal(self, point: Vector) -> bool:
         return inside_zone(point, self.goal)
 
+
+############################ UNUSED ################################
+
+
+class ImgMap:
+    def __init__(self, map_name: str) -> None:
+        self._img_path = Path('maps') / map_name
+        self._img: np.ndarray = cv2.imread(self._img_path)
+        self._axes: tuple[int, ...] = self.img.shape[:-1]
+
+    @property
+    def img(self) -> np.ndarray:
+        return self._img.copy()
     
+    @property
+    def img_path(self) -> Path:
+        return self._img_path
+
+    @property
+    def axes(self) -> tuple[int, ...]:
+        return self._axes
+    
+    def check_position(self, position: list[int]) -> ColorEnum:
+        return get_color(self._img[*position])
+    
+    def find_positions(self, color: ColorEnum) -> np.ndarray:
+        positions = [position for position, pixel in drill(self._img)
+                     if get_color(pixel) == color]
+        
+        return np.array(positions)
