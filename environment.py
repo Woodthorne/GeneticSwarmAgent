@@ -3,16 +3,15 @@ import random
 import cv2
 import numpy as np
 
-from agent import Agent
-from map import AbstractMap, ImgMap
+from agent import Agent, Percept
+from map import AbstractMap
 from drone import Drone
-from signals import ColorEnum
-from utils import intersection, obstacle_in_view, get_discrete_coords, merge_vectors, dev_print
+from utils import intersection, segment_circle_intersection, get_discrete_coords, merge_segments, dev_print
 
 class Environment:
     def __init__(
             self,
-            map: AbstractMap|ImgMap,
+            map: AbstractMap,
             agent: Agent,
             sensor_radius: int = 10,
             collisions: bool = True
@@ -24,42 +23,26 @@ class Environment:
         
         self._swarm: list[Drone] = []
         self._is_done: bool = False
-        self._latest_percept: dict[str, np.ndarray] = {}
+        self._latest_percept = Percept()
         self._detections: list[np.ndarray] = []
-        if isinstance(self._map, ImgMap):
-            self._latest_percept['view'] = np.full(self._map.img.shape, 100)
-        else:
-            self._latest_percept['obstacles'] = []
     
     @property
     def is_done(self) -> bool:
         return self._is_done
     
     def populate_swarm(self, count: int) -> None:
-        if isinstance(self._map, ImgMap):
-            starting_positions = self._map.find_positions(ColorEnum.BLUE)
-            for drone in self._swarm:
-                mask = (starting_positions != drone.position).any(axis = 1)
-                starting_positions = starting_positions[mask]
-        
         for _ in range(count):
             id_num = len(self._swarm)
-            if isinstance(self._map, ImgMap):
-                position = random.choice(starting_positions)
-            
-                mask = (starting_positions != position).any(axis = 1)
-                starting_positions = starting_positions[mask]
-            else:
-                occupied_positions = np.zeros((0, len(self._map.axes)))
-                for drone in self._swarm:
-                    occupied_positions = np.vstack([occupied_positions, drone.position])
-                while True:
-                    position = np.array(
-                        [random.random() * (ax1 - ax0) + ax0
-                         for ax0, ax1 in zip(*self._map.start)]
-                    )
-                    if np.all(position not in occupied_positions):
-                        break
+            occupied_positions = np.zeros((0, len(self._map.axes)))
+            for drone in self._swarm:
+                occupied_positions = np.vstack([occupied_positions, drone.position])
+            while True:
+                position = np.array(
+                    [random.random() * (ax1 - ax0) + ax0
+                        for ax0, ax1 in zip(*self._map.start)]
+                )
+                if np.all(position not in occupied_positions):
+                    break
             
             drone = Drone(
                 id_num = id_num,
@@ -71,97 +54,81 @@ class Environment:
     
     def step(self) -> np.ndarray:
         self._swarm.sort(key=lambda p: p.fitness)
-        percept = {}
-        percept['swarm_pos'] = np.array([drone.position for drone in self._swarm])
-        percept['swarm_data'] = np.array([(drone.position, drone.velocity, drone.best_position) for drone in self._swarm])
-        
-        if isinstance(self._map, ImgMap):
-            percept['view'] = self._latest_percept['view'].copy()
-            # percept['view'] = np.full(self._map.img.shape, 100)
-            for drone in self._swarm:
-                mask = [slice(max(axis - self._sensor_radius, 0),
-                            axis + self._sensor_radius + 1)
-                        for axis in drone.position]
-                percept['view'][*mask] = self._map.img[*mask] # TODO: Fix conversion from [0,0,0] to ColorEnum
-        else:
-            detections: list[np.ndarray] = []
-            for drone in self._swarm:
-                for obstacle in self._map.obstacles:
-                    count, coordinates = obstacle_in_view(obstacle, drone.position, self._sensor_radius)
-                    if count == 2:
-                        detections.append(coordinates)
-            
-            self._detections.extend(detections)
-            self._detections = merge_vectors(self._detections)
+        percept = Percept()
+        percept.swarm_data = np.array(
+            [(drone.position, drone.velocity, drone.best_position)
+             for drone in self._swarm]
+        )
 
-            # percept['obstacles'] = np.array(self._map.obstacles)
-            percept['obstacles'] = np.array(self._detections)
-            percept['obstacles'] = np.unique(percept['obstacles'], axis = 0)
-            print(f'Currently tracking {len(percept['obstacles'])} obstacles.')
+        detections: list[np.ndarray] = []
+        for drone in self._swarm:
+            for obstacle in self._map.obstacles:
+                intersects, segment = segment_circle_intersection(
+                    obstacle, drone.position, self._sensor_radius
+                )
+                if intersects == 2:
+                    detections.append(segment)
+        
+        self._detections.extend(detections)
+        self._detections = merge_segments(self._detections)
+
+        # percept.obstacles = np.array(self._map.obstacles)
+        percept.obstacles = np.array(self._detections)
+        percept.obstacles = np.unique(percept.obstacles, axis = 0)
+        print(f'Currently tracking {len(percept.obstacles)} obstacles.')
         
         self._latest_percept = percept
-        fitness_func, inertia, exploration, exploitation = self._agent.new_fitness_func(percept)
-        
-        best_position = self._swarm[0].best_position
+        fitness_func, genetic_iees = self._agent.new_fitness_func(percept)
+
+        best_position = self._agent._checkpoint
         frame = np.full((*self._map.axes, 3), 255)
-        for drone in self._swarm:
-            new_velocity = random.random() * (
+        for drone, iee in zip(self._swarm, genetic_iees):
+            inertia, exploration, exploitation = iee
+            new_velocity = (
                 inertia * drone.velocity \
                 + exploration * (drone.best_position - drone.position) \
                 + exploitation * (best_position - drone.position)
             )
             move_vector = drone.move(new_velocity, fitness_func)
-            if self._collisions and isinstance(self._map, ImgMap):
-                if not all([0 for _ in self._map.axes] < drone.position) \
-                or not all(drone.position < self._map.axes):
-                    print(f'Collision occured at {drone.position}')
+            
+            for obstacle in self._map.obstacles:
+                intersect, position = intersection(move_vector, obstacle)
+                if intersect:
+                    print(f'Collision occured at {position}')
+                    dev_print('move', move_vector.flatten())
+                    dev_print('obstacle:', obstacle.flatten())
+                    trajectory = get_discrete_coords(move_vector)
+                    for point in trajectory:
+                        if np.all(point < self._map.axes):
+                            frame[*point] = [0, 0, 255]
+                    cv2.imshow('collision', frame.astype(np.uint8))
                     cv2.waitKey(0) & 0xFF == ord('q')
                     quit()
-            elif self._collisions:
-                for obstacle in self._map.obstacles:
-                    intersect, position = intersection(move_vector, obstacle)
-                    if intersect:
-                        print(f'Collision occured at {position}')
-                        # dev_print('move', move_vector.flatten())
-                        # for detection in percept['obstacles']:
-                        #     dev_print('detection:', detection.flatten())
-                        cv2.waitKey(0) & 0xFF == ord('q')
-                        quit()
-            if isinstance(self._map, ImgMap):
-                try:
-                    percept['view'][*drone.position] = [0, 0, 255]
-                except IndexError:
-                    pass
-            else:
-
-                frame[*drone.position.astype(dtype=np.int8)] = [0, 0, 255]
-
-        if isinstance(self._map, ImgMap):
-            if all(drone.position in self._agent.target_area for drone in self._swarm):
-                self._is_done = True
             
-            return percept['view']
-        else:
-            if all(self._map.in_goal(drone.position) for drone in self._swarm):
-                self._is_done = True
+            frame[*drone.position.astype(dtype=np.int8)] = [0, 0, 255]
 
-            detections = []
-            for obstacle in percept['obstacles']:
-                points = get_discrete_coords(obstacle)
-                detections.append((obstacle, points))
-                for point in points:
-                    try:
-                        frame[*point] = [0, 0, 0]
-                    except IndexError:
-                        print('obstacle drawing issue')
-                        print(points)
-                        print(point)
-                        quit()
+        if all(self._map.in_goal(drone.position) for drone in self._swarm):
+            self._is_done = True
 
-                # frame[*obstacle.astype(dtype=np.int8)] = [0, 0, 0]
-            # print(detections)
-            # cv2.imshow('frame', frame.astype(np.uint8))
-            # cv2.waitKey(0) & 0xFF == ord('q')
-            # quit()
+        detections = []
+        for obstacle in percept.obstacles:
+            points = get_discrete_coords(obstacle)
+            detections.append((obstacle, points))
+            for point in points:
+                try:
+                    frame[*point] = [0, 0, 0]
+                except IndexError:
+                    print('obstacle drawing issue')
+                    print(points)
+                    print(point)
+                    quit()
+        
+        # TEMP
+        sum_of_points = np.sum([drone.position for drone in self._swarm], axis = 0)
+        num_of_points = len(self._swarm)
+        swarm_center: np.ndarray = sum_of_points / num_of_points
+        # frame[*swarm_center.astype(np.int8)] = [120, 120, 120]
+        frame[*self._agent._checkpoint.astype(np.int8)] = [255, 0, 0]
+        # /TEMP
 
-            return frame
+        return frame
