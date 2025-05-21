@@ -2,14 +2,14 @@ from typing import Callable
 
 import numpy as np
 
-from utils import Vector, dev_print
+from utils import Segment, Vector, dev_print
 
 class Drone:
     def __init__(
             self,
             id_num: int,
-            position: np.ndarray,
-            velocity: np.ndarray,
+            position: Vector,
+            velocity: Vector,
             fitness_func: Callable
     ) -> None:
         self._id = id_num
@@ -25,7 +25,7 @@ class Drone:
         return self._id
 
     @property
-    def position(self) -> np.ndarray:
+    def position(self) -> Vector:
         return self._position.copy()
     
     @property
@@ -33,7 +33,7 @@ class Drone:
         return self._fitness
     
     @property
-    def best_position(self) -> np.ndarray:
+    def best_position(self) -> Vector:
         return self._best_position.copy()
 
     @property
@@ -41,10 +41,10 @@ class Drone:
         return self._best_fitness
     
     @property
-    def velocity(self) -> np.ndarray:
+    def velocity(self) -> Vector:
         return self._velocity.copy()
     
-    def move(self, new_velocity: list[float],new_fitness_func: Callable) -> np.ndarray:
+    def move(self, new_velocity: Vector,new_fitness_func: Callable) -> Segment:
         old_position = self._position
         self._position = self.position + self.velocity
         self._velocity = new_velocity
