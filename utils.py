@@ -6,60 +6,36 @@ import numpy as np
 
 from signals import ColorEnum
 
+type Vector = np.ndarray
+type Segment = np.ndarray
 
-type Point = tuple[float, ...]
-type Vector = tuple[Point, Point]
+
+type LPoint = tuple[float, ...]
+type LVector = tuple[LPoint, LPoint]
 
 
 def dev_print(*values, sep = None, end = None, file = None, flush = None) -> None:
     print('DEV', *values, sep=sep, end=end, file=file, flush=flush)
 
 
-def drill(array: np.ndarray) -> Iterator[tuple[list[int], np.ndarray]]:
-    subarray: np.ndarray
-    for index, subarray in enumerate(array):
-        if len(subarray.shape) == 1:
-            yield ([index], subarray)
-        else:
-            for result in drill(subarray):
-                result[0].insert(0, index)
-                yield result
-
-
-def get_color(array: np.ndarray) -> ColorEnum:
-    if all(array == [255, 255, 255]):
-        return ColorEnum.WHITE
-    if all(array == [000, 000, 000]):
-        return ColorEnum.BLACK
-    if all(array == [000, 000, 255]):
-        return ColorEnum.RED
-    if all(array == [000, 255, 000]):
-        return ColorEnum.GREEN
-    if all(array == [255, 000, 000]):
-        return ColorEnum.BLUE
-    if all(array == [100, 100, 100]):
-        return ColorEnum.WHITE
-    raise ValueError(f'Unrecognised colour: {array}')
-
-
-def euclidean(origin: np.ndarray, destination: np.ndarray) -> float:
+def euclidean(origin: Vector, destination: Vector) -> float:
     distance = np.linalg.norm(origin-destination)
     return float(distance)
 
 
-def inside_zone(point: Point, zone: Vector) -> bool:
+def inside_zone(point: Vector, zone: Segment) -> bool:
     for ax0, ax1, axp in zip(*zone, point):
         if not ax0 < axp < ax1:
             return False
     return True
 
 
-def intersection(vector_a: np.ndarray, vector_b: np.ndarray) -> tuple[bool, np.ndarray|None]:
-    (x1, y1), (x2, y2) = vector_a
-    (x3, y3), (x4, y4) = vector_b
+def intersection(segment_a: Segment, segment_b: Segment) -> tuple[bool, np.ndarray|None]:
+    (x1, y1), (x2, y2) = segment_a
+    (x3, y3), (x4, y4) = segment_b
     if (x1 == x2 and x3 == x4) or (y1 == y2 and y3 == y4):
         return (False, None)
-    if np.unique(vector_a, axis=0).shape != vector_a.shape:
+    if np.unique(segment_a, axis=0).shape != segment_a.shape:
         return (False, None)
     
     A = np.array([[x2 - x1, -(x4 - x3)], [y2 - y1, -(y4 - y3)]])
@@ -78,20 +54,20 @@ def intersection(vector_a: np.ndarray, vector_b: np.ndarray) -> tuple[bool, np.n
     # https://numpy.org/doc/2.2/reference/generated/numpy.linalg.solve.html
 
 
-def get_discrete_coords(vector: Vector) -> float:
-    (x1, y1), (x2, y2) = vector
+def get_discrete_coords(segment: Segment) -> list[np.ndarray]:
+    (x1, y1), (x2, y2) = segment
     x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
     
     match x1 == x2, y1 == y2:
         case True, True:
             return [np.array([x1, y1])]
         case False, False:
-            dy = abs(y1 - y2)
-            dx = abs(x1 - x2)
+            dy = y1 - y2
+            dx = x1 - x2
             m = dy / dx
             y0 = y1 - m * x1
             
-            def f(x: float) -> float:
+            def f(x: float) -> int:
                 return int(m * x + y0)
             
             min_x, max_x = sorted([x1, x2])
@@ -106,23 +82,40 @@ def get_discrete_coords(vector: Vector) -> float:
             return [np.array([x, y1]) for x in range(min_x, max_x + 1)]
     
 
-def obstacle_in_view(vector: Vector, position: Point, radius: float) -> tuple[int, np.ndarray|None]:
-    (x1, y1), (x2, y2) = vector
+def segment_circle_intersection(segment: Segment, center: Vector, radius: float) -> tuple[int, np.ndarray|None]:
+    (x1, y1), (x2, y2) = segment
     a = (y1 - y2)
     b = (x2 - x1)
-    c = (x1 * y2 - x2 * y1)
-    delta = radius**2 * (a**2 + b**2) - c**2
+    c = -(x1 * y2 - x2 * y1)
+
+    # dev_print(f'{radius=}')
+    
+    delta = radius**2 * (a**2 + b**2) + c**2
     if delta < 0:
         return (0, None)
-    x0, y0 = position
-    ix1 = x0 + (a*c + b * math.sqrt(delta)) / (a**2 + b**2)
-    ix2 = x0 + (a*c - b * math.sqrt(delta)) / (a**2 + b**2)
-    iy1 = y0 + (b*c - a * math.sqrt(delta)) / (a**2 + b**2)
-    iy2 = y0 + (b*c + a * math.sqrt(delta)) / (a**2 + b**2)
+    
+    x0, y0 = center
+    # ix1 = x0 + (a*c + b * math.sqrt(delta)) / (a**2 + b**2)
+    # ix2 = x0 + (a*c - b * math.sqrt(delta)) / (a**2 + b**2)
+    # iy1 = y0 + (b*c - a * math.sqrt(delta)) / (a**2 + b**2)
+    # iy2 = y0 + (b*c + a * math.sqrt(delta)) / (a**2 + b**2)
+    # i_segment = np.array(((ix1, iy1), (ix2, iy2)))
+    # dev_print('c ', i_segment.flatten())
+    
+    c1 = c - a * x0 - b * y0
+    delta = radius**2 * (a**2 + b**2) + c1**2
+    # dev_print(f'{delta=}')
+    ix1 = x0 + (a*c1 + b * math.sqrt(delta)) / (a**2 + b**2)
+    ix2 = x0 + (a*c1 - b * math.sqrt(delta)) / (a**2 + b**2)
+    iy1 = y0 + (b*c1 - a * math.sqrt(delta)) / (a**2 + b**2)
+    iy2 = y0 + (b*c1 + a * math.sqrt(delta)) / (a**2 + b**2)
+    # i_segment = np.array(((ix1, iy1), (ix2, iy2)))
+    # dev_print('c1', i_segment.flatten())
+        
     min_x, max_x = sorted([x1, x2])
     min_y, max_y = sorted([y1, y2])
     if delta > 0:
-        i_vector = []
+        i_segment = []
         for x, y in ((ix1, iy1), (ix2, iy2)):
             if x < min_x:
                 x = min_x
@@ -132,9 +125,9 @@ def obstacle_in_view(vector: Vector, position: Point, radius: float) -> tuple[in
                 y = min_y
             if y > max_y:
                 y = max_y
-            i_vector.append((x,y))
+            i_segment.append((x,y))
         
-        return (2, np.array(i_vector))
+        return (2, np.array(i_segment))
     else:
         dev_print('Possible tangent')
         dev_print('x:', ix1 == ix2)
@@ -165,11 +158,11 @@ def obstacle_in_view(vector: Vector, position: Point, radius: float) -> tuple[in
     # TODO: Fix intersections
 
 
-def merge_vectors(vectors: list[np.ndarray]) -> list[np.ndarray]:
+def merge_segments(segments: list[Segment]) -> list[Segment]:
     # TODO: Clean
     merged = []
     checked = []
-    for index, vector_1 in enumerate(vectors):
+    for index, vector_1 in enumerate(segments):
         if index in checked:
             continue
         checked.append(index)
@@ -180,7 +173,7 @@ def merge_vectors(vectors: list[np.ndarray]) -> list[np.ndarray]:
             return (x2 - x1) * (y - y1) - (y2 - y1) * (x - x1) == 0
 
         merge = False
-        for index, vector_2 in enumerate(vectors):
+        for index, vector_2 in enumerate(segments):
             if index in checked:
                 continue
 
@@ -204,8 +197,8 @@ def merge_vectors(vectors: list[np.ndarray]) -> list[np.ndarray]:
         if not merge:
             merged.append(vector_1)
     
-    if len(vectors) != len(merged):
-        return merge_vectors(merged)
+    if len(segments) != len(merged):
+        return merge_segments(merged)
     return merged
 
 
@@ -219,7 +212,27 @@ def to_tuple(array: np.ndarray) -> tuple:
 ############################ UNUSED ################################
 
 
-def collision(vector: Vector, point: Point) -> bool:
+@cache
+def add(*vectors: Vector) -> Vector:
+    '''Adds together multiple vectors
+
+    Parameters
+    ----------
+    vectors: tuple[*float]
+        Vectors to be added.
+
+    Returns
+    -------
+    tuple[*float]
+        LVector sum.
+    '''
+    assert all(len(vectors[0]) == len(vector) for vector in vectors), \
+        'All vectors need to be of same length.'
+    vector = tuple(int(sum(vals)) for vals in zip(*vectors))
+    return vector
+
+
+def collision(vector: LVector, point: LPoint) -> bool:
     x0, y0 = point
     (x1, y1), (x2, y2) = vector
     if sorted([y0, y1, y2])[1] != y0:
@@ -236,90 +249,34 @@ def collision(vector: Vector, point: Point) -> bool:
         return (m * x0) + c == y0
 
 
-@cache
-def add(*vectors: list[int]) -> list[int]:
-    assert all(len(vectors[0]) == len(vector) for vector in vectors), \
-        'All vectors need to be of same length.'
-    
-    vector = [sum(vals) for vals in zip(*vectors)]
-    return vector
+def drill(array: np.ndarray) -> Iterator[tuple[list[int], np.ndarray]]:
+    subarray: np.ndarray
+    for index, subarray in enumerate(array):
+        if len(subarray.shape) == 1:
+            yield ([index], subarray)
+        else:
+            for result in drill(subarray):
+                result[0].insert(0, index)
+                yield result
 
 
-def sightline(origin: Point, radius: float, angle: float) -> np.ndarray:
-    assert len(origin) == 2, 'Only implemented for 2 dimensions'
-    radians = math.radians(angle)
-    mod = np.array(
-        [radius * math.cos(radians),
-         radius * math.sin(radians)]
-    )
-
-    vector = np.array([origin, origin + mod])
-    return vector
-
-
-@cache
-def add(*vectors: tuple[float]) -> tuple[float]:
-    '''Adds together multiple vectors
-
-    Parameters
-    ----------
-    vectors: tuple[*float]
-        Vectors to be added.
-
-    Returns
-    -------
-    tuple[*float]
-        Vector sum.
-    '''
-    assert all(len(vectors[0]) == len(vector) for vector in vectors), \
-        'All vectors need to be of same length.'
-    vector = tuple(int(sum(vals)) for vals in zip(*vectors))
-    return vector
+def get_color(array: np.ndarray) -> ColorEnum:
+    if all(array == [255, 255, 255]):
+        return ColorEnum.WHITE
+    if all(array == [000, 000, 000]):
+        return ColorEnum.BLACK
+    if all(array == [000, 000, 255]):
+        return ColorEnum.RED
+    if all(array == [000, 255, 000]):
+        return ColorEnum.GREEN
+    if all(array == [255, 000, 000]):
+        return ColorEnum.BLUE
+    if all(array == [100, 100, 100]):
+        return ColorEnum.WHITE
+    raise ValueError(f'Unrecognised colour: {array}')
 
 
-@cache
-def subtract(vector: tuple[float], *subtrahends: tuple[float]) -> tuple[float]:
-    '''Subtracts vectors from first vectors.
-
-    Parameters
-    ----------
-    vector: tuple[*float]
-        Vector to subtract from.
-    subtrahends: tuple[*float]
-        Vectors to subtract from first vector.
-    
-    Returns
-    -------
-    tuple[*float]
-        Vector difference.
-    '''
-    assert all(len(vector) == len(subtrahend) for subtrahend in subtrahends), \
-        'All subtrahends need to be of same length as vector.'
-    addends = [multiply(-1, subtrahend) for subtrahend in subtrahends]
-    return add(vector, *addends)
-
-
-@cache
-def multiply(scalar: float, vector: tuple[float]) -> tuple[float]:
-    '''Scalar multiplication
-    
-    Parameters
-    ----------
-    scalar: float
-        Left scalar of multiplication
-    vector: tuple[*float]
-        Vector to be multiplied
-    
-    Returns
-    -------
-    tuple[*float]
-        Scaled vector.
-
-    '''
-    return tuple(int(scalar * val) for val in vector)
-
-
-def intersection_circle(vector: Vector, center: Point, radius: float) -> list[np.ndarray]:
+def intersection_circle(vector: LVector, center: LPoint, radius: float) -> list[np.ndarray]:
     # https://stackoverflow.com/questions/30844482/what-is-most-efficient-way-to-find-the-intersection-of-a-line-and-a-circle-in-py
     x0, y0 = center
     (x1, y1), (x2, y2) = vector
@@ -366,3 +323,64 @@ def intersection_circle(vector: Vector, center: Point, radius: float) -> list[np
 
     # https://en.wikipedia.org/wiki/Linear_equation
     # https://en.wikipedia.org/wiki/Intersection_(geometry)#A_line_and_a_circle
+
+
+def manhattan(origin: Vector, destination: Vector) -> float:
+    distance = 0
+    for axo, axd in zip(origin, destination):
+        distance += abs(axo - axd)
+    return distance
+
+
+@cache
+def multiply(scalar: float, vector: tuple[float]) -> tuple[float]:
+    '''Scalar multiplication
+    
+    Parameters
+    ----------
+    scalar: float
+        Left scalar of multiplication
+    vector: tuple[*float]
+        LVector to be multiplied
+    
+    Returns
+    -------
+    tuple[*float]
+        Scaled vector.
+
+    '''
+    return tuple(int(scalar * val) for val in vector)
+
+
+def sightline(origin: LPoint, radius: float, angle: float) -> np.ndarray:
+    assert len(origin) == 2, 'Only implemented for 2 dimensions'
+    radians = math.radians(angle)
+    mod = np.array(
+        [radius * math.cos(radians),
+         radius * math.sin(radians)]
+    )
+
+    vector = np.array([origin, origin + mod])
+    return vector
+
+
+@cache
+def subtract(vector: tuple[float], *subtrahends: tuple[float]) -> tuple[float]:
+    '''Subtracts vectors from first vectors.
+
+    Parameters
+    ----------
+    vector: tuple[*float]
+        LVector to subtract from.
+    subtrahends: tuple[*float]
+        Vectors to subtract from first vector.
+    
+    Returns
+    -------
+    tuple[*float]
+        LVector difference.
+    '''
+    assert all(len(vector) == len(subtrahend) for subtrahend in subtrahends), \
+        'All subtrahends need to be of same length as vector.'
+    addends = [multiply(-1, subtrahend) for subtrahend in subtrahends]
+    return add(vector, *addends)
