@@ -27,6 +27,7 @@ class AbstractMap:
                 np.array([(rows - 1, cols - 1), (0, cols - 1)])
         ]
         self._obstacles.extend(border)
+        self._obstacles.reverse()
     
     @property
     def axes(self) -> tuple[int, ...]:
