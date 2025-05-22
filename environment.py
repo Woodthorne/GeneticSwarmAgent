@@ -72,16 +72,17 @@ class Environment:
         self._detections.extend(detections)
         self._detections = merge_segments(self._detections)
 
-        # percept.obstacles = np.array(self._map.obstacles)
-        percept.obstacles = np.array(self._detections)
+        percept.obstacles = np.array(self._map.obstacles)
+        # percept.obstacles = np.array(self._detections)
         percept.obstacles = np.unique(percept.obstacles, axis = 0)
         print(f'Currently tracking {len(percept.obstacles)} obstacles.')
         
         self._latest_percept = percept
-        fitness_func, genetic_iees = self._agent.new_fitness_func(percept)
+        fitness_func, genetic_iees, reset = self._agent.new_fitness_func(percept)
 
         best_position = self._agent._checkpoint
-        frame = np.full((*self._map.axes, 3), 255)
+        best_position = self._swarm[0].best_position
+        frame = np.full((*self._map.axes, 3), 50)
         for drone, iee in zip(self._swarm, genetic_iees):
             inertia, exploration, exploitation = iee
             new_velocity = (
@@ -89,7 +90,7 @@ class Environment:
                 + exploration * (drone.best_position - drone.position) \
                 + exploitation * (best_position - drone.position)
             )
-            move_vector = drone.move(new_velocity, fitness_func)
+            move_vector = drone.move(new_velocity, fitness_func, reset)
             
             for obstacle in self._map.obstacles:
                 intersect, position = intersection(move_vector, obstacle)
@@ -130,5 +131,11 @@ class Environment:
         # frame[*swarm_center.astype(np.int8)] = [120, 120, 120]
         frame[*self._agent._checkpoint.astype(np.int8)] = [255, 0, 0]
         # /TEMP
+        (x0, y0), (x1, y1) = self._map.goal
+        frame[x0, y0] = [0, 255, 0]
+        frame[x0, y1] = [0, 255, 0]
+        frame[x1, y0] = [0, 255, 0]
+        frame[x1, y1] = [0, 255, 0]
+
 
         return frame
