@@ -27,6 +27,7 @@ def inside_zone(point: Vector, zone: Segment) -> bool:
     for ax0, ax1, axp in zip(*zone, point):
         if not ax0 < axp < ax1:
             return False
+    dev_print(point, zone.flatten())
     return True
 
 
@@ -38,6 +39,8 @@ def intersection(segment_a: Segment, segment_b: Segment) -> tuple[bool, np.ndarr
     if np.unique(segment_a, axis=0).shape != segment_a.shape:
         return (False, None)
     
+    # dev_print(segment_a.flatten())
+    # dev_print(segment_b.flatten())
     A = np.array([[x2 - x1, -(x4 - x3)], [y2 - y1, -(y4 - y3)]])
     b = np.array([x3 - x1, y3 - y1])
     x = np.linalg.solve(A, b)
@@ -83,10 +86,10 @@ def get_discrete_coords(segment: Segment) -> list[np.ndarray]:
     
 
 def segment_circle_intersection(segment: Segment, center: Vector, radius: float) -> tuple[int, np.ndarray|None]:
-    (x1, y1), (x2, y2) = segment
+    (x1, y1), (x2, y2) = sorted(segment, key=lambda v: v[0])
     a = (y1 - y2)
     b = (x2 - x1)
-    c = -(x1 * y2 - x2 * y1)
+    c = x2 * y1 - x1 * y2
 
     # dev_print(f'{radius=}')
     
@@ -104,16 +107,46 @@ def segment_circle_intersection(segment: Segment, center: Vector, radius: float)
     
     c1 = c - a * x0 - b * y0
     delta = radius**2 * (a**2 + b**2) + c1**2
-    # dev_print(f'{delta=}')
     ix1 = x0 + (a*c1 + b * math.sqrt(delta)) / (a**2 + b**2)
     ix2 = x0 + (a*c1 - b * math.sqrt(delta)) / (a**2 + b**2)
     iy1 = y0 + (b*c1 - a * math.sqrt(delta)) / (a**2 + b**2)
     iy2 = y0 + (b*c1 + a * math.sqrt(delta)) / (a**2 + b**2)
+    i_segment = [[ix1, iy1], [ix2, iy2]]
     # i_segment = np.array(((ix1, iy1), (ix2, iy2)))
     # dev_print('c1', i_segment.flatten())
-        
-    min_x, max_x = sorted([x1, x2])
+    # dev_print('found', np.array(i_segment).flatten())
+    
+    min_x, max_x = x1, x2
     min_y, max_y = sorted([y1, y2])
+    y_line = ix1 == ix2
+    x_line = iy1 == iy2
+    # if not y_line and (max_x < min([ix1, ix2]) or max([ix1, ix2]) < min_x):
+    #     return (0, None)
+    # if not x_line and (max_y < min([iy1, iy2]) or max([iy1, iy2]) < min_y):
+    #     return (0, None)
+    # if not y_line:
+    #     i_segment.sort(key=lambda v: v[0])
+    #     if x_line and (max_x < i_segment[0][0] or i_segment[1][0] < min_x):
+    #         dev_print(min_y == max_y == iy1 == iy2)
+    #         return (0, None)
+    #     if i_segment[0][0] < min_x:
+    #         i_segment[0][0] = min_x
+    #     if i_segment[1][0] > max_x:
+    #         i_segment[1][0] = max_x
+    # if not x_line:
+    #     i_segment.sort(key=lambda v: v[1])
+    #     if y_line and (max_y < i_segment[0][1] or i_segment[1][1] < min_y):
+    #         dev_print(min_x == max_x == ix1 == ix2)
+    #         return (0, None)
+    #     if i_segment[0][1] < min_y:
+    #         i_segment[0][1] = min_y
+    #     if i_segment[1][1] > max_y:
+    #         i_segment[1][1] = max_y
+    
+    # dev_print('adjusted', np.array(i_segment).flatten())
+    # dev_print('segment', segment.flatten())
+    # print('##################################')
+
     if delta > 0:
         i_segment = []
         for x, y in ((ix1, iy1), (ix2, iy2)):
@@ -127,6 +160,10 @@ def segment_circle_intersection(segment: Segment, center: Vector, radius: float)
                 y = max_y
             i_segment.append((x,y))
         
+        if i_segment[0] == i_segment[1]:
+            dev_print(segment.flatten())
+            dev_print(np.array(i_segment).flatten())
+            quit()
         return (2, np.array(i_segment))
     else:
         dev_print('Possible tangent')
