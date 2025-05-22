@@ -26,6 +26,8 @@ class Agent:
         self._target_area = target_area
         self._checkpoint = None
         self._step_size = step_size
+        self._route = []
+        self._state: tuple|None = None
     
     @property
     def target_area(self) -> np.ndarray:
@@ -39,30 +41,52 @@ class Agent:
         return np.array((x, y))
 
     def new_fitness_func(self, percept: Percept) -> Callable:
+        reset = False
         sum_of_points = np.sum(percept.swarm_data[:, 0, :] + percept.swarm_data[:, 1, :], axis = 0)
         num_of_points = percept.swarm_data.shape[0]
         swarm_center = sum_of_points / num_of_points
-        destination = self.random_target()
+        new_state = to_tuple(percept.obstacles)
         
-        if self._checkpoint is None:
-            checkpoint_distance = INFINITY
-        else:
-            checkpoint_distance = euclidean(self._checkpoint, destination)
+        if not self._state or self._state != new_state:
+            self._state = new_state
+            destination = self.random_target()
+            destination = np.sum(self._target_area, axis = 0) / 2
+            self._route = self.a_star(
+                origin = swarm_center,
+                destination = destination,
+                obstacles = percept.obstacles
+            )
+            dev_print('new route')
+            self._checkpoint = self._route.pop(0)
+            reset = True
         
-        swarm_distance = euclidean(swarm_center, destination)
-        if 0.9 * swarm_distance < checkpoint_distance:
-            dev_print('Finding route')
-            # route = self.a_star(swarm_center,
-            route = self.a_star(swarm_center,
-                                destination,
-                                percept.obstacles)
-            dev_print('Route found')
-            if len(route) > 1:
-                self._checkpoint = route[1]
-            else:
-                self._checkpoint = route[0]
-            # self._checkpoint = destination
-            # dev_print('new checkpoint:', self._checkpoint)
+        if 0 < len(self._route):
+            step = self._checkpoint
+            next_step = self._route[0]
+            if 0.9 * euclidean(swarm_center, next_step) < euclidean(step, next_step):
+                dev_print('new checkpoint')
+                self._checkpoint = self._route.pop(0)
+                reset = True
+        
+        # if self._checkpoint is None:
+        #     checkpoint_distance = INFINITY
+        # else:
+        #     checkpoint_distance = euclidean(self._checkpoint, destination)
+        
+        # swarm_distance = euclidean(swarm_center, destination)
+        # if 0.9 * swarm_distance < checkpoint_distance:
+        #     dev_print('Finding route')
+        #     # route = self.a_star(swarm_center,
+        #     route = self.a_star(swarm_center,
+        #                         destination,
+        #                         percept.obstacles)
+        #     dev_print('Route found')
+        #     if len(route) > 1:
+        #         self._checkpoint = route[1]
+        #     else:
+        #         self._checkpoint = route[0]
+        #     # self._checkpoint = destination
+        #     # dev_print('new checkpoint:', self._checkpoint)
         
         def fitness_func(position: Iterable) -> float:
             distance = euclidean(position, self._checkpoint)
@@ -76,7 +100,7 @@ class Agent:
         )
         dev_print('Params found')
 
-        return fitness_func, genetic_iee
+        return fitness_func, genetic_iee, reset
     
 
     def a_star(self, origin: np.ndarray, destination: np.ndarray, obstacles: list[np.ndarray]) -> list[np.ndarray]:
@@ -158,8 +182,8 @@ class Agent:
             global_fitness_func: Callable
     ) -> tuple[float, float, float]:
         rows, *_, dims = swarm_data.shape
-        best_position = np.full((rows, dims), swarm_data[:, 2, :][0])
         best_position = self._checkpoint
+        best_position = np.full((rows, dims), swarm_data[:, 2, :][0])
 
         def genetic_fitness(genome: tuple[float, float, float]) -> float:
             data = swarm_data.copy()
