@@ -73,11 +73,12 @@ if __name__ == '__main__':
         start_zone = ((10, 10), (50, 50)),
         goal_zone = ((100, 150), (140, 190)),
         obstacles = [
-            ((20, 100), (130, 100))
+            # ((20, 100), (130, 100)),
+            # ((10, 130), (10, 140)),
+            # ((14, 120), (10, 144))
         ]   
     )
     sensor_radius=min(abstract_map_params['axes']) / 10
-    # map_name = None
     main(map_params=abstract_map_params,
          collisions=True,
          sensor_radius=sensor_radius)
