@@ -44,13 +44,13 @@ class Drone:
     def velocity(self) -> Vector:
         return self._velocity.copy()
     
-    def move(self, new_velocity: Vector,new_fitness_func: Callable) -> Segment:
+    def move(self, new_velocity: Vector, new_fitness_func: Callable, reset: bool) -> Segment:
         old_position = self._position
         self._position = self.position + self.velocity
         self._velocity = new_velocity
         self._fitness_func = new_fitness_func
         self._fitness = new_fitness_func(self.position)
-        if self.fitness < self.best_fitness:
+        if self.fitness < self.best_fitness or reset:
             self._best_fitness = self.fitness
             self._best_position = self.position
         
