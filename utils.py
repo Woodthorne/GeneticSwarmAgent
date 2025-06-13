@@ -160,10 +160,10 @@ def segment_circle_intersection(segment: Segment, center: Vector, radius: float)
                 y = max_y
             i_segment.append((x,y))
         
-        if i_segment[0] == i_segment[1]:
-            dev_print(segment.flatten())
-            dev_print(np.array(i_segment).flatten())
-            quit()
+        # if i_segment[0] == i_segment[1]:
+        #     dev_print(segment.flatten())
+        #     dev_print(np.array(i_segment).flatten())
+        #     quit()
         return (2, np.array(i_segment))
     else:
         dev_print('Possible tangent')
