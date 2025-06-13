@@ -1,3 +1,4 @@
+import random
 from timeit import default_timer
 
 import cv2
@@ -7,6 +8,7 @@ from agent import Agent
 from drone import Drone
 from environment import Environment
 from map import AbstractMap
+from utils import to_tuple
 
 
 def main(
@@ -69,13 +71,20 @@ def main(
 
 if __name__ == '__main__':
     abstract_map_params = dict(
-        axes = (150, 200),
+        axes = (300, 400),
         start_zone = ((10, 10), (50, 50)),
-        goal_zone = ((100, 150), (140, 190)),
+        goal_zone = ((250, 350), (290, 390)),
         obstacles = [
-            # ((20, 100), (130, 100)),
-            # ((10, 130), (10, 140)),
-            # ((14, 120), (10, 144))
+            to_tuple(
+                [[
+                    random.randint(50, 250),
+                    random.randint(50, 350)
+                ],
+                [
+                    random.randint(50, 250),
+                    random.randint(50, 350)
+                ]]
+            ) for _ in range(3)
         ]   
     )
     sensor_radius=min(abstract_map_params['axes']) / 10
