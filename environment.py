@@ -72,8 +72,8 @@ class Environment:
         self._detections.extend(detections)
         self._detections = merge_segments(self._detections)
 
-        percept.obstacles = np.array(self._map.obstacles)
-        # percept.obstacles = np.array(self._detections)
+        # percept.obstacles = np.array(self._map.obstacles)
+        percept.obstacles = np.array(self._detections)
         percept.obstacles = np.unique(percept.obstacles, axis = 0)
         print(f'Currently tracking {len(percept.obstacles)} obstacles.')
         
@@ -82,7 +82,7 @@ class Environment:
 
         best_position = self._agent._checkpoint
         best_position = self._swarm[0].best_position
-        frame = np.full((*self._map.axes, 3), 50)
+        frame = np.full((*self._map.axes, 3), 150)
         for drone, iee in zip(self._swarm, genetic_iees):
             inertia, exploration, exploitation = iee
             new_velocity = (
